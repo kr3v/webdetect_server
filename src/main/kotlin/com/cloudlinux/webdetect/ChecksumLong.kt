@@ -1,7 +1,9 @@
 package com.cloudlinux.webdetect
 
 import java.lang.Character.digit
-import java.lang.Long.compareUnsigned
+import java.lang.Long.toHexString
+import java.lang.Long.toUnsignedString
+import java.util.Arrays
 import java.util.Objects
 
 fun String.asChecksumLong(): ChecksumLong {
@@ -14,34 +16,25 @@ fun String.asChecksumLong(): ChecksumLong {
         }
         ll[i] = l
     }
-    return ChecksumLong(
-        ll[0],
-        ll[1],
-        ll[2],
-        ll[3]
-    )
+    return ChecksumLong(ll)
 }
 
 @Suppress("EqualsOrHashCode")
 data class ChecksumLong(
-    val l1: Long,
-    val l2: Long,
-    val l3: Long,
-    val l4: Long,
-    val hash: Int = Objects.hash(l1, l2, l3, l4)
+    val ll: LongArray,
+    val hash: Int = Arrays.hashCode(ll)
 ) : Comparable<ChecksumLong> {
 
     override fun compareTo(other: ChecksumLong): Int {
-        val ll1 = compareUnsigned(l1, other.l1)
-        return if (ll1 == 0) {
-            val ll2 = compareUnsigned(l2, other.l2)
-            if (ll2 == 0) {
-                val ll3 = compareUnsigned(l3, other.l3)
-                if (ll3 == 0) compareUnsigned(l4, other.l4)
-                else ll3
-            } else ll2
-        } else ll1
+        for (idx in ll.indices) {
+            val compareTo = ll[idx].compareTo(other.ll[idx])
+            if (compareTo != 0) return compareTo
+        }
+        return 0
     }
 
+    override fun equals(other: Any?) = this === other || other is ChecksumLong && Arrays.equals(ll, other.ll)
     override fun hashCode() = hash
+
+    fun asHexString() = ll.indices.joinToString(separator = "") { toHexString(ll[it]) }
 }

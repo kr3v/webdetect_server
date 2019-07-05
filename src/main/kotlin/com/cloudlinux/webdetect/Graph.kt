@@ -8,34 +8,6 @@ class AppVersionGraphEntry(
     override fun equals(other: Any?) = this === other || other is AppVersionGraphEntry && key == other.key
     override fun hashCode(): Int = key.hashCode()
     override fun toString() = key
-
-    fun updateExclusiveChecksums() {
-        exclusiveChecksums = checksums.sumBy { if (it.appVersions.size == 1) 1 else 0 }
-    }
-
-    fun isDefined(ctx: GraphTaskContext) = exclusiveChecksums >= ctx.sufficientChecksums
-
-    fun removeNonExclusiveChecksums(ctx: GraphTaskContext): Set<AppVersionGraphEntry> {
-        val result = MutableSet<AppVersionGraphEntry>()
-        val iterator = checksums.iterator()
-        while (iterator.hasNext()) {
-            val checksum = iterator.next()
-            if (checksum.appVersions.size == 1) continue
-
-            iterator.remove()
-            checksum.dependsOn += this
-            checksum.appVersions -= this
-            for (adjacentAppVersion in checksum.appVersions) {
-                if (checksum.appVersions.size == 1) {
-                    adjacentAppVersion.exclusiveChecksums++
-                    if (adjacentAppVersion.exclusiveChecksums == ctx.sufficientChecksums) {
-                        result += adjacentAppVersion
-                    }
-                }
-            }
-        }
-        return result
-    }
 }
 
 class ChecksumGraphEntry(
@@ -49,9 +21,41 @@ class ChecksumGraphEntry(
     override fun toString() = key.toString()
 }
 
-data class GraphTaskContext(
-    val sufficientChecksums: Int
-)
+class GraphTaskContext(
+    private val sufficientChecksums: Int
+) {
+
+    fun isDefined(av: AppVersionGraphEntry) = av.exclusiveChecksums >= sufficientChecksums
+
+    fun removeNonExclusiveChecksums(av: AppVersionGraphEntry): Set<AppVersionGraphEntry> {
+        val result = MutableSet<AppVersionGraphEntry>()
+        val iterator = av.checksums.iterator()
+        while (iterator.hasNext()) {
+            val checksum = iterator.next()
+            if (checksum.appVersions.size == 1) continue
+
+            iterator.remove()
+            checksum.dependsOn += av
+            checksum.appVersions -= av
+            updateQueue(checksum, result)
+        }
+        return result
+    }
+
+    private fun updateQueue(
+        checksum: ChecksumGraphEntry,
+        result: MutableSet<AppVersionGraphEntry>
+    ) {
+        for (adjacentAppVersion in checksum.appVersions) {
+            if (checksum.appVersions.size == 1) {
+                adjacentAppVersion.exclusiveChecksums++
+                if (adjacentAppVersion.exclusiveChecksums == sufficientChecksums) {
+                    result += adjacentAppVersion
+                }
+            }
+        }
+    }
+}
 
 fun createGraph(
     checksumToAppVersion: Map<Checksum, Set<AppVersion>>,
@@ -70,8 +74,8 @@ fun createGraph(
             avEntry.checksums.add(csEntry)
         }
     }
-    for (it in avDict.values) {
-        it.updateExclusiveChecksums()
+    for (av in avDict.values) {
+        av.exclusiveChecksums = av.checksums.sumBy { if (it.appVersions.size == 1) 1 else 0 }
     }
 
     return avDict
@@ -84,11 +88,11 @@ fun findDefinedAppVersions(
     val ctx = GraphTaskContext(sufficientChecksums)
     val definedAppVersions = MutableMap<AppVersion, AppVersionGraphEntry>()
 
-    val bfsQueue = avDict.values.filterTo(MutableLinkedSet<AppVersionGraphEntry>()) { it.isDefined(ctx) }
+    val bfsQueue = avDict.values.filterTo(MutableLinkedSet<AppVersionGraphEntry>(), ctx::isDefined)
     while (bfsQueue.isNotEmpty()) {
         val av = bfsQueue.removeFirst()
-        if (av.isDefined(ctx) && definedAppVersions.put(av.key, av) == null) {
-            bfsQueue.addAll(av.removeNonExclusiveChecksums(ctx))
+        if (ctx.isDefined(av) && definedAppVersions.put(av.key, av) == null) {
+            bfsQueue.addAll(ctx.removeNonExclusiveChecksums(av))
         }
     }
 
