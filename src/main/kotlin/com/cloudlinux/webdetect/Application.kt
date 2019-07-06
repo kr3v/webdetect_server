@@ -2,6 +2,7 @@ package com.cloudlinux.webdetect
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import java.io.File
+import kotlin.math.min
 
 val OBJECT_MAPPER = jacksonObjectMapper()
 
@@ -24,16 +25,19 @@ fun main(args: Array<String>) {
     appVersions.clear()
     appVersions.trim()
 
-    val result = findDefinedAppVersions(avDict, 5)
-    (4 downTo 1).forEach {
-        result += findDefinedAppVersions(avDict, it)
-    }
+    GraphTaskContext(avDict).process()
 
-    println("Result: ${result.size}/${avDict.size}")
+    println("Result: ${avDict.count { (_, v) -> v.checksums.all { it.appVersions.size == 1 } } - avDict.count { (_, v) -> v.checksums.size == 0 }}/${avDict.size}")
+    println("Stats:")
+    avDict.values
+        .groupBy { min(5, it.checksums.size) }
+        .mapValues { (_, v) -> v.size }
+        .toSortedMap()
+        .forEach { t, u -> println("$t -> $u") }
 
     OBJECT_MAPPER.writeValue(
         File(out),
-        result
+        avDict
             .values
             .map {
                 it.checksums

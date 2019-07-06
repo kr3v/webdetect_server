@@ -3,8 +3,8 @@ package com.cloudlinux.webdetect
 class AppVersionGraphEntry(
     val key: AppVersion,
     val checksums: SortedSet<ChecksumGraphEntry>,
-    var exclusiveChecksums: Int = -1
-) {
+    override var queueIndex: Int
+) : PriorityQueue.Indexable {
     override fun equals(other: Any?) = this === other || other is AppVersionGraphEntry && key == other.key
     override fun hashCode(): Int = key.hashCode()
     override fun toString() = key
@@ -14,21 +14,20 @@ class ChecksumGraphEntry(
     val key: Checksum,
     val appVersions: MutableSet<AppVersionGraphEntry>,
     val dependsOn: MutableSet<AppVersionGraphEntry>
-) : Comparable<ChecksumGraphEntry> {
-    override fun compareTo(other: ChecksumGraphEntry) = key.compareTo(other.key)
+) {
     override fun equals(other: Any?) = this === other || other is ChecksumGraphEntry && key == other.key
     override fun hashCode(): Int = key.hashCode()
     override fun toString() = key.toString()
 }
 
 class GraphTaskContext(
-    private val sufficientChecksums: Int
+    private val queue: PriorityQueue<AppVersionGraphEntry>
 ) {
 
-    fun isDefined(av: AppVersionGraphEntry) = av.exclusiveChecksums >= sufficientChecksums
+    constructor(avDict: MutableMap<AppVersion, AppVersionGraphEntry>)
+        : this(PriorityQueue(avDict.values) { it.checksums.sumBy { cs -> if (cs.appVersions.size == 1) 1 else 0 } })
 
-    fun removeNonExclusiveChecksums(av: AppVersionGraphEntry): Set<AppVersionGraphEntry> {
-        val result = MutableSet<AppVersionGraphEntry>()
+    private fun removeNonExclusiveChecksums(av: AppVersionGraphEntry) {
         val iterator = av.checksums.iterator()
         while (iterator.hasNext()) {
             val checksum = iterator.next()
@@ -37,22 +36,15 @@ class GraphTaskContext(
             iterator.remove()
             checksum.dependsOn += av
             checksum.appVersions -= av
-            updateQueue(checksum, result)
+            for (adjacentAppVersion in checksum.appVersions) {
+                queue.inc(adjacentAppVersion, 1)
+            }
         }
-        return result
     }
 
-    private fun updateQueue(
-        checksum: ChecksumGraphEntry,
-        result: MutableSet<AppVersionGraphEntry>
-    ) {
-        for (adjacentAppVersion in checksum.appVersions) {
-            if (checksum.appVersions.size == 1) {
-                adjacentAppVersion.exclusiveChecksums++
-                if (adjacentAppVersion.exclusiveChecksums == sufficientChecksums) {
-                    result += adjacentAppVersion
-                }
-            }
+    fun process() {
+        while (queue.isNotEmpty()) {
+            removeNonExclusiveChecksums(queue.pop().value)
         }
     }
 }
@@ -64,7 +56,7 @@ fun createGraph(
     val avDict = MutableMap<AppVersion, AppVersionGraphEntry>(appVersions.size, 1f)
 
     for (av in appVersions) {
-        avDict[av] = AppVersionGraphEntry(av, SortedSet())
+        avDict[av] = AppVersionGraphEntry(av, SortedSet(), -1)
     }
     for ((cs, avs) in checksumToAppVersion) {
         val csEntry = ChecksumGraphEntry(cs, MutableSet(avs.size, 1f), MutableSet())
@@ -74,27 +66,5 @@ fun createGraph(
             avEntry.checksums.add(csEntry)
         }
     }
-    for (av in avDict.values) {
-        av.exclusiveChecksums = av.checksums.sumBy { if (it.appVersions.size == 1) 1 else 0 }
-    }
-
     return avDict
-}
-
-fun findDefinedAppVersions(
-    avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
-    sufficientChecksums: Int
-): MutableMap<AppVersion, AppVersionGraphEntry> {
-    val ctx = GraphTaskContext(sufficientChecksums)
-    val definedAppVersions = MutableMap<AppVersion, AppVersionGraphEntry>()
-
-    val bfsQueue = avDict.values.filterTo(MutableLinkedSet<AppVersionGraphEntry>(), ctx::isDefined)
-    while (bfsQueue.isNotEmpty()) {
-        val av = bfsQueue.removeFirst()
-        if (ctx.isDefined(av) && definedAppVersions.put(av.key, av) == null) {
-            bfsQueue.addAll(ctx.removeNonExclusiveChecksums(av))
-        }
-    }
-
-    return definedAppVersions
 }
