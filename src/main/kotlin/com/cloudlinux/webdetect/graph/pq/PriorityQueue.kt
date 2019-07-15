@@ -1,14 +1,17 @@
-package com.cloudlinux.webdetect
+package com.cloudlinux.webdetect.graph.pq
+
+import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
+import com.cloudlinux.webdetect.graph.HasIntField
 
 
-class PriorityQueue<T : PriorityQueue.Indexable> private constructor(
+internal class PriorityQueue<T : HasIntField> private constructor(
     private val values: MutableList<Entry<T>>,
     private var last: Int = values.size - 1
 ) {
 
     constructor(values: Collection<T>, keyExtractor: (T) -> Int) : this(
         values.mapIndexedTo(ArrayList(values.size)) { idx, it ->
-            it.queueIndex = idx
+            it.intField = idx
             Entry(keyExtractor(it), it)
         })
 
@@ -25,8 +28,8 @@ class PriorityQueue<T : PriorityQueue.Indexable> private constructor(
     }
 
     fun inc(t: T, delta: Int) {
-        values[t.queueIndex].key += delta
-        up(t.queueIndex)
+        values[t.intField].key += delta
+        up(t.intField)
     }
 
     fun isEmpty() = last == -1
@@ -57,20 +60,16 @@ class PriorityQueue<T : PriorityQueue.Indexable> private constructor(
     }
 
     private fun swap(idx1: Int, idx2: Int) {
-        values[idx1].value.queueIndex = idx2
-        values[idx2].value.queueIndex = idx1
+        values[idx1].value.intField = idx2
+        values[idx2].value.intField = idx1
 
         val temp = values[idx1]
         values[idx1] = values[idx2]
         values[idx2] = temp
     }
 
-    data class Entry<T : Indexable>(
+    data class Entry<T : HasIntField>(
         var key: Int,
         val value: T
     )
-
-    interface Indexable {
-        var queueIndex: Int
-    }
 }

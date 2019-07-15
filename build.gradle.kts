@@ -18,6 +18,7 @@ dependencies {
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-csv:2.9.9")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.9.7")
 
+    implementation("org.postgresql:postgresql:42.2.6")
 }
 
 tasks.withType<KotlinCompile> {

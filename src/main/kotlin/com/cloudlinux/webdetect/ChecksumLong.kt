@@ -19,7 +19,6 @@ fun String.asChecksumLong(): ChecksumLong {
     return ChecksumLong(ll)
 }
 
-@Suppress("EqualsOrHashCode")
 data class ChecksumLong(
     val ll: LongArray,
     val hash: Int = Arrays.hashCode(ll)
@@ -35,6 +34,7 @@ data class ChecksumLong(
 
     override fun equals(other: Any?) = this === other || other is ChecksumLong && Arrays.equals(ll, other.ll)
     override fun hashCode() = hash
+    override fun toString(): String = asHexString()
 
-    fun asHexString() = ll.indices.joinToString(separator = "") { toHexString(ll[it]) }
+    private fun asHexString() = ll.indices.joinToString(separator = "") { String.format("%016x", ll[it]) }
 }
