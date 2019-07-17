@@ -1,8 +1,7 @@
 package com.cloudlinux.webdetect.graph.grouping
 
 import com.cloudlinux.webdetect.AppVersion
-import com.cloudlinux.webdetect.Checksum
-import com.cloudlinux.webdetect.MergedAppVersion
+import com.cloudlinux.webdetect.IAppVersion
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.graph.ChecksumGraphEntry
 import com.cloudlinux.webdetect.MutableMap
@@ -26,7 +25,8 @@ class MergeSameAppVersionsTask(
         appVersionsToBeMerged: MutableSet<AppVersionGraphEntry>,
         checksums: MutableSet<ChecksumGraphEntry>
     ) {
-        val mergedAv = MergedAppVersion(appVersionsToBeMerged.mapTo(MutableSet()) { it.key })
+        if (appVersionsToBeMerged.size == 1) return
+        val mergedAv = IAppVersion.Merged(appVersionsToBeMerged.mapTo(MutableSet()) { it.key })
         val mergedAvGraphEntry = AppVersionGraphEntry(mergedAv, checksums)
         for (av in appVersionsToBeMerged.toList()) {
             avDict.remove(av.key)

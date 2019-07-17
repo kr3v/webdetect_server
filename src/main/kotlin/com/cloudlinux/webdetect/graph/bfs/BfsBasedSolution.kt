@@ -47,7 +47,7 @@ class BfsBasedSolution(
 
     fun process(): MutableMap<AppVersion, AppVersionGraphEntry> {
         val result = MutableMap<AppVersion, AppVersionGraphEntry>()
-        sufficientChecksumsRange.forEach { sufficientChecksums ->
+        for (sufficientChecksums in sufficientChecksumsRange) {
             this.sufficientChecksums = sufficientChecksums
             avDict.values.filterTo(bfsQueue, ::isDefined)
             while (bfsQueue.isNotEmpty()) {

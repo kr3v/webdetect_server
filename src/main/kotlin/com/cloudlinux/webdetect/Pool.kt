@@ -8,23 +8,33 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
-interface IAppVersion
+sealed class IAppVersion {
+    fun apps(): List<String> = when (this) {
+        is Single -> listOf(app)
+        is Merged -> appVersions.map(IAppVersion::apps).flatten()
+    }
 
-data class SingleAppVersion(
-    val app: String,
-    val version: String,
-    @field:JsonIgnore
-    val both: String
-) : IAppVersion {
-    override fun equals(other: Any?) = other === this || other is SingleAppVersion && other.both == both
-    override fun hashCode() = both.hashCode()
-    override fun toString() = both
-}
+    fun versions(): List<String> = when (this) {
+        is Single -> listOf(version)
+        is Merged -> appVersions.map(IAppVersion::versions).flatten()
+    }
 
-data class MergedAppVersion(
-    val appVersions: MutableSet<IAppVersion>
-): IAppVersion {
-    override fun toString(): String = appVersions.toString()
+    data class Single(
+        val app: String,
+        val version: String,
+        @field:JsonIgnore
+        val both: String
+    ) : IAppVersion() {
+        override fun equals(other: Any?) = other === this || other is Single && other.both == both
+        override fun hashCode() = both.hashCode()
+        override fun toString() = "$app#$version"
+    }
+
+    data class Merged(
+        val appVersions: MutableSet<IAppVersion>
+    ): IAppVersion() {
+        override fun toString(): String = appVersions.toString()
+    }
 }
 
 typealias AppVersion = IAppVersion
@@ -49,7 +59,7 @@ fun string(string: String): String = strings.computeIfAbsent(string) { string }
 
 fun appVersion(app: String, version: String): AppVersion =
     appVersions.computeIfAbsent(app + version) {
-        SingleAppVersion(
+        IAppVersion.Single(
             string(app),
             string(version),
             string(app + version)
