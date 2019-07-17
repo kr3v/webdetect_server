@@ -13,6 +13,12 @@ class BfsBasedSolution(
     private var sufficientChecksums: Int = sufficientChecksumsRange.first
 ) {
 
+    init {
+        for (av in avDict.values) {
+            av.intField = av.checksums.sumBy { if (it.appVersions.size == 1) 1 else 0 }
+        }
+    }
+
     private fun isDefined(av: AppVersionGraphEntry) = av.intField >= sufficientChecksums
 
     private fun removeNonExclusiveChecksums(av: AppVersionGraphEntry) {

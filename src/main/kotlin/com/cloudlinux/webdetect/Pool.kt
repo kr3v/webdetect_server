@@ -8,18 +8,26 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
+interface IAppVersion
 
-data class StringPair(
+data class SingleAppVersion(
     val app: String,
     val version: String,
     @field:JsonIgnore
     val both: String
-) {
-    override fun equals(other: Any?) = other === this || other is StringPair && other.both == both
+) : IAppVersion {
+    override fun equals(other: Any?) = other === this || other is SingleAppVersion && other.both == both
     override fun hashCode() = both.hashCode()
+    override fun toString() = both
 }
 
-typealias AppVersion = StringPair
+data class MergedAppVersion(
+    val appVersions: MutableSet<IAppVersion>
+): IAppVersion {
+    override fun toString(): String = appVersions.toString()
+}
+
+typealias AppVersion = IAppVersion
 //typealias Checksum = String
 typealias Checksum = ChecksumLong
 
@@ -34,8 +42,32 @@ object Pool {
     val strings = MutableMap<String, String>()
 }
 
-fun checksum(cs: String) = checksums.computeIfAbsent(cs) { it.asChecksumLong() }
+fun checksum(cs: String): Checksum = checksums.computeIfAbsent(cs) { it.asChecksumLong() }
 //fun checksum(cs: String) = checksums.computeIfAbsent(cs) { it }!!
-fun string(string: String) = strings.computeIfAbsent(string) { string }!!
-fun appVersion(app: String, version: String) =
-    appVersions.computeIfAbsent(app + version) { StringPair(string(app), string(version), string(app + version)) }!!
+
+fun string(string: String): String = strings.computeIfAbsent(string) { string }
+
+fun appVersion(app: String, version: String): AppVersion =
+    appVersions.computeIfAbsent(app + version) {
+        SingleAppVersion(
+            string(app),
+            string(version),
+            string(app + version)
+        )
+    }!!
+
+class PooledCtx {
+    val checksumToAppVersions: MutableMap<Checksum, MutableSet<AppVersion>> = MutableMap()
+    val appVersions: MutableSet<AppVersion> = MutableSet()
+
+    fun doPooling(
+        app: String,
+        version: String,
+        checksum: String
+    ) {
+        val av = appVersion(app, version)
+        val cs = checksum(checksum)
+        appVersions += av
+        checksumToAppVersions.computeIfAbsent(cs) { MutableSet() } += av
+    }
+}
