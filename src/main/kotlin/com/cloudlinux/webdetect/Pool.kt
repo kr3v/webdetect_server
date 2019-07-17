@@ -38,8 +38,8 @@ sealed class IAppVersion {
 }
 
 typealias AppVersion = IAppVersion
-//typealias Checksum = String
-typealias Checksum = ChecksumLong
+typealias Checksum = String
+//typealias Checksum = ChecksumLong
 
 typealias MutableSet<T> = ObjectOpenHashSet<T>
 typealias MutableLinkedSet<T> = ObjectLinkedOpenHashSet<T>
@@ -52,8 +52,8 @@ object Pool {
     val strings = MutableMap<String, String>()
 }
 
-fun checksum(cs: String): Checksum = checksums.computeIfAbsent(cs) { it.asChecksumLong() }
-//fun checksum(cs: String) = checksums.computeIfAbsent(cs) { it }!!
+//fun checksum(cs: String): Checksum = checksums.computeIfAbsent(cs) { it.asChecksumLong() }
+fun checksum(cs: String) = checksums.computeIfAbsent(cs) { it }!!
 
 fun string(string: String): String = strings.computeIfAbsent(string) { string }
 

@@ -1,5 +1,6 @@
 package com.cloudlinux.webdetect
 
+import com.cloudlinux.webdetect.bloomfilter.bloomFilterBasedSolution
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.graph.bfs.BfsBasedSolution
 import com.cloudlinux.webdetect.graph.createGraph
@@ -43,6 +44,13 @@ fun main(args: Array<String>) {
     pooledCtx.appVersions.clear()
     pooledCtx.appVersions.trim()
 
+    bloomFilterBasedSolution(avDict.values, File(detect.get()).readLines())
+}
+
+private fun graphBasedSolution(
+    avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
+    out: String
+) {
     val MAX = 5
     val MIN = 1
     val definedAvDict = BfsBasedSolution(avDict, MAX downTo MIN).process()
@@ -168,7 +176,7 @@ fun processByDb(pathToShaList: String, definedAv: Map<Checksum, Map<String, Any>
     println("Additional arg passed, checking $pathToShaList...")
     val lines = File(pathToShaList)
     lines.forEachLine { line ->
-        val cs = line.asChecksumLong()
+        val cs = line
         if (cs in definedAv) {
             println(definedAv[cs])
         }
