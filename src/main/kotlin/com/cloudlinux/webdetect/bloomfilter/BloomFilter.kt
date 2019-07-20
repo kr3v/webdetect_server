@@ -1,78 +1,86 @@
 package com.cloudlinux.webdetect.bloomfilter
 
-import com.cloudlinux.webdetect.MutableMap
+import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.MutableSet
+import com.cloudlinux.webdetect.asChecksumLong
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import orestes.bloomfilter.BloomFilter
 import orestes.bloomfilter.FilterBuilder
-import java.util.concurrent.atomic.AtomicInteger
 
 fun bloomFilterBasedSolution(
-    avDict: Iterable<AppVersionGraphEntry>,
+    avDict: Map<AppVersion, AppVersionGraphEntry>,
+    graphEntries: Iterable<AppVersionGraphEntry>,
     toBeChecked: List<String>
 ) {
-    val twoLevelBf = buildTwoLevelFilters(avDict)
-    doMatching(toBeChecked, twoLevelBf)
+    val twoLevelBf = buildTwoLevelFilters(graphEntries)
+    doMatching(avDict, toBeChecked, twoLevelBf)
 }
 
 private fun doMatching(
+    avDict: Map<AppVersion, AppVersionGraphEntry>,
     toBeChecked: List<String>,
-    twoLevelBf: Set<Map.Entry<List<String>, Pair<BloomFilter<String>, Set<Map.Entry<List<String>, BloomFilter<String>>>>>>
+    twoLevelBf: List<Map.Entry<List<String>, Pair<BloomFilter<String>, List<Map.Entry<List<String>, BloomFilter<String>>>>>>
 ) {
-    val matches = MutableMap<List<String>, MutableMap<List<String>, AtomicInteger>>()
-    for (cs in toBeChecked) {
-        for ((app, filterAndSecondLevel) in twoLevelBf) {
+    val matches = Object2IntOpenHashMap<AppVersion.Single>()
+    for (cs in toBeChecked.distinct()) {
+        val bytes = cs.asChecksumLong().asByteArray()
+        for (i in twoLevelBf.indices) {
+            val (app, filterAndSecondLevel) = twoLevelBf[i]
             val (bf, secondLevel) = filterAndSecondLevel
-            if (cs in bf) {
-                for ((version, filter) in secondLevel) {
-                    if (cs in filter) {
-                        matches.computeIfAbsent(app) { MutableMap() }.computeIfAbsent(version) { AtomicInteger() }.incrementAndGet()
+            if (bytes in bf) {
+                for (j in secondLevel.indices) {
+                    val (version, filter) = secondLevel[j]
+                    if (bytes in filter) {
+                        matches.addTo(AppVersion.Single(app.single(), version.single()), 1)
                     }
                 }
             }
         }
     }
     println()
-    for ((app, versions) in matches) {
-        if (versions.isNotEmpty()) {
-            println("App $app:")
-            versions
-                .entries
-                .sortedBy { it.value.get() }
-                .takeLast(5)
-                .forEach { (versions, count) ->
-                    println("\t$versions: $count")
-                }
+    matches
+        .object2IntEntrySet()
+        .map { it to it.intValue.toDouble() / avDict.getValue(it.key).checksums.size.toDouble() }
+        .filter { (_, v) -> v > 0.5 }
+        .sortedBy { (_, v) -> v }
+        .forEach { (kk, vv) ->
+            val (k, v) = kk
+            println(
+                "$k -> $v / ${avDict.getValue(k).checksums.size} = $vv"
+            )
         }
-    }
 }
 
-private fun buildTwoLevelFilters(avDict: Iterable<AppVersionGraphEntry>): Set<Map.Entry<List<String>, Pair<BloomFilter<String>, Set<Map.Entry<List<String>, BloomFilter<String>>>>>> {
-    var size = 0
+private fun buildTwoLevelFilters(avDict: Iterable<AppVersionGraphEntry>): List<Map.Entry<List<String>, Pair<BloomFilter<String>, List<Map.Entry<List<String>, BloomFilter<String>>>>>> {
+    var size = 0L
+    val fpProbability = 1e-3
     val r = avDict
         .groupBy { it.key.apps() }
         .mapValues { (_, v) ->
             val perAppChecksums = v.asSequence().map { it.checksums }.flatten().toCollection(MutableSet()).size
-            val appBf = FilterBuilder(perAppChecksums, 0.01).buildBloomFilter<String>()
+            val appBf = FilterBuilder(perAppChecksums, fpProbability).buildBloomFilter<String>()
             size += appBf.size
             appBf to v
                 .groupBy { it.key.versions() }
                 .mapValues { (_, v) ->
                     val perVersionsChecksums =
                         v.asSequence().map { it.checksums }.flatten().toCollection(MutableSet()).size
-                    val versionBf = FilterBuilder(perVersionsChecksums, 0.01).buildBloomFilter<String>()
+                    val versionBf = FilterBuilder(perVersionsChecksums, fpProbability).buildBloomFilter<String>()
                     size += versionBf.size
                     for (av in v) {
                         for (cs in av.checksums) {
-                            versionBf.add(cs.key.toString())
-                            appBf.add(cs.key.toString())
+                            versionBf.addRaw(cs.key.asByteArray())
+                            appBf.addRaw(cs.key.asByteArray())
                         }
                     }
                     versionBf
                 }
                 .entries
+                .toList()
         }
         .entries
+        .toList()
     println("All filters: ${size / 8} B")
     return r
 }

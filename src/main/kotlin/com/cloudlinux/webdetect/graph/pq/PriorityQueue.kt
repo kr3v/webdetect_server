@@ -1,6 +1,5 @@
 package com.cloudlinux.webdetect.graph.pq
 
-import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.graph.HasIntField
 
 

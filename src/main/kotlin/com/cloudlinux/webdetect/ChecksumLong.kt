@@ -1,10 +1,8 @@
 package com.cloudlinux.webdetect
 
 import java.lang.Character.digit
-import java.lang.Long.toHexString
-import java.lang.Long.toUnsignedString
+import java.nio.ByteBuffer
 import java.util.Arrays
-import java.util.Objects
 
 fun String.asChecksumLong(): ChecksumLong {
     if (this.length != 64) throw Exception(this)
@@ -35,6 +33,13 @@ data class ChecksumLong(
     override fun equals(other: Any?) = this === other || other is ChecksumLong && Arrays.equals(ll, other.ll)
     override fun hashCode() = hash
     override fun toString(): String = asHexString()
+
+    fun asByteArray(): ByteArray {
+        val result = ByteArray(32)
+        val bb = ByteBuffer.wrap(result)
+        ll.forEach { bb.putLong(it) }
+        return result
+    }
 
     private fun asHexString() = ll.indices.joinToString(separator = "") { String.format("%016x", ll[it]) }
 }
