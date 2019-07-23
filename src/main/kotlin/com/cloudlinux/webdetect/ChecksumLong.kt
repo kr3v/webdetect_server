@@ -42,4 +42,7 @@ data class ChecksumLong(
     }
 
     private fun asHexString() = ll.indices.joinToString(separator = "") { String.format("%016x", ll[it]) }
+        // !!! temporary !!!
+        .take(8)
+    // !!! temporary !!!
 }

@@ -1,6 +1,6 @@
 package com.cloudlinux.webdetect
 
-import com.cloudlinux.webdetect.graph.graphBasedSolution
+import com.cloudlinux.webdetect.bloomfilter.bloomFilterBasedSolution
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import java.io.File
@@ -24,8 +24,8 @@ fun main(args: Array<String>) {
     )
     pooledCtx.pool.cleanup()
 
-//    bloomFilterBasedSolution(avDict, avDict.values, File(detect.get()).readLines())
-    graphBasedSolution(pooledCtx, Optional.of("$out.json"), Optional.of("$out.ldb"))
+    bloomFilterBasedSolution(pooledCtx, File(detect.get()).readLines())
+//    graphBasedSolution(pooledCtx, Optional.of("$out.json"), Optional.of("$out.ldb"))
 }
 
 private fun processByDb(pathToShaList: String, pathToDb: String) = processByDb(
