@@ -15,7 +15,7 @@ typealias SortedSet<T> = ObjectOpenHashSet<T>
 
 class PooledCtx {
     val checksumToAppVersions: MutableMap<Checksum, MutableSet<AppVersion>> = MutableMap()
-    val appVersions: MutableSet<AppVersion> = MutableSet()
+    val appVersions: MutableMap<AppVersion, MutableSet<Checksum>> = MutableMap()
     val pool = Pool()
 
     fun doPooling(
@@ -25,7 +25,7 @@ class PooledCtx {
     ) {
         val av = appVersion(app, version)
         val cs = checksum(checksum)
-        appVersions += av
+        appVersions.computeIfAbsent(av) { MutableSet() } += cs
         checksumToAppVersions.computeIfAbsent(cs) { MutableSet() } += av
     }
 

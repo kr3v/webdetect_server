@@ -19,7 +19,7 @@ fun graphBasedSolution(
 ) {
     val (avDict, csDict) = createGraph(
         pooledCtx.checksumToAppVersions.filter { (_, v) -> v.mapTo(MutableSet()) { it.apps().single() }.size == 1 },
-        pooledCtx.appVersions
+        pooledCtx.appVersions.keys
     )
     pooledCtx.cleanup()
 

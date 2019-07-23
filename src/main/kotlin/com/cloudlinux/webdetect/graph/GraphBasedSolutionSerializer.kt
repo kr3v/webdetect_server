@@ -12,6 +12,9 @@ import java.io.File
 import java.util.Optional
 import java.util.concurrent.atomic.AtomicInteger
 
+private typealias Checksums = MutableMap<Checksum, IntArray>
+private typealias AppVersions = MutableMap<Int, List<AppVersion.Single>>
+
 class GraphBasedSolutionSerializer(
     private val avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
     private val definedAvDict: MutableMap<AppVersion, AppVersionGraphEntry>,
@@ -31,7 +34,7 @@ class GraphBasedSolutionSerializer(
         appVersions.trim()
     }
 
-    private fun prepareToSerialize(): Pair<MutableMap<Checksum, IntArray>, MutableMap<Int, AppVersionValue.Value>> {
+    private fun prepareToSerialize(): Pair<Checksums, AppVersions> {
         val idx = AtomicInteger()
         val avToInt = avDict.mapValuesTo(Object2IntOpenHashMap()) { idx.getAndIncrement() }
         avToInt.defaultReturnValue(-1)
@@ -53,34 +56,14 @@ class GraphBasedSolutionSerializer(
                 it.key to appVersionsAndListOfDependencies
             }
 
-        val appVersions = avDict.entries.associateTo(MutableMap()) { (it, v) ->
-            val value = when (it) {
-                is AppVersion.Single -> AppVersionValue.Value.Single(it.app, it.version)
-                is AppVersion.Merged -> when {
-                    it.appVersions.size == 1 -> {
-                        val (app, version) = it.appVersions().single()
-                        AppVersionValue.Value.Single(app, version)
-                    }
-                    else -> {
-                        val m = it.appVersions().groupBy(AppVersion.Single::app)
-                        if (m.size == 1) {
-                            val (app, versions) = m.entries.single()
-                            AppVersionValue.Value.MergedWithSingleApp(app, versions.map(AppVersion.Single::version))
-                        } else {
-                            AppVersionValue.Value.Merged(m.mapValues { (_, v) -> v.map(AppVersion.Single::version) })
-                        }
-                    }
-                }
-            }
-            avToInt.getInt(v.key) to value
-        }
+        val appVersions = avDict.keys.associateTo(MutableMap()) { k -> avToInt.getInt(k) to k.appVersions() }
 
         return checksums to appVersions
     }
 
     private fun serializeAsJson(
-        checksums: Map<Checksum, IntArray>,
-        appVersions: Map<Int, AppVersionValue.Value>,
+        checksums: Checksums,
+        appVersions: AppVersions,
         pathToJson: String
     ) {
         val map = MutableMap<String, Any>()
@@ -97,8 +80,8 @@ class GraphBasedSolutionSerializer(
     }
 
     private fun serializeAsLevelDb(
-        checksums: Map<Checksum, IntArray>,
-        appVersions: Map<Int, AppVersionValue.Value>,
+        checksums: Checksums,
+        appVersions: AppVersions,
         pathToLevelDb: String
     ) {
         JniDBFactory.factory.open(File(pathToLevelDb), Options().also { it.createIfMissing(true) }).use { db ->
@@ -113,38 +96,12 @@ class GraphBasedSolutionSerializer(
         }
     }
 
-    private data class AppVersionValue(
-        val value: Value,
-        val type: Type = value.type
-    ) {
-        sealed class Value {
-            abstract val type: Type
-
-            data class Single(
-                val app: String,
-                val version: String
-            ) : Value() {
-                override val type: Type get() = Type.SINGLE
-            }
-
-            data class MergedWithSingleApp(
-                val app: String,
-                val versions: List<String>
-            ) : Value() {
-                override val type: Type get() = Type.MERGED_WITHIN_SINGLE_APP
-            }
-
-            data class Merged(
-                val m: Map<String, List<String>>
-            ) : Map<String, List<String>> by m, Value() {
-                override val type: Type get() = Type.MERGED
-            }
-        }
-
-        enum class Type {
-            SINGLE,
-            MERGED_WITHIN_SINGLE_APP,
-            MERGED
-        }
+    data class AppVersionValue(
+        val list: List<AppVersionValue.Entry>
+    ) : List<AppVersionValue.Entry> by list {
+        data class Entry(
+            val app: String,
+            val versions: List<String>
+        )
     }
 }
