@@ -84,24 +84,17 @@ class GraphBasedSolutionSerializer(
         appVersions: AppVersions,
         pathToLevelDb: String
     ) {
-        JniDBFactory.factory.open(File(pathToLevelDb), Options().also { it.createIfMissing(true) }).use { db ->
-            val wb = db.createWriteBatch()
-            for ((k, v) in checksums) {
-                wb.put(k.asByteArray(), v.asByteArray())
+        JniDBFactory.factory
+            .open(File(pathToLevelDb), Options().createIfMissing(true))
+            .use { db ->
+                val wb = db.createWriteBatch()
+                for ((k, v) in checksums) {
+                    wb.put(k.asByteArray(), v.asByteArray())
+                }
+                for ((k, v) in appVersions) {
+                    wb.put(k.asByteArray(), OBJECT_MAPPER.writeValueAsBytes(v))
+                }
+                db.write(wb)
             }
-            for ((k, v) in appVersions) {
-                wb.put(k.asByteArray(), OBJECT_MAPPER.writeValueAsBytes(v))
-            }
-            db.write(wb)
-        }
-    }
-
-    data class AppVersionValue(
-        val list: List<AppVersionValue.Entry>
-    ) : List<AppVersionValue.Entry> by list {
-        data class Entry(
-            val app: String,
-            val versions: List<String>
-        )
     }
 }

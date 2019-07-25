@@ -13,7 +13,7 @@ typealias MutableMap<K, V> = Object2ObjectOpenHashMap<K, V>
 typealias SortedMap<K, V> = Object2ObjectAVLTreeMap<K, V>
 typealias SortedSet<T> = ObjectOpenHashSet<T>
 
-class PooledCtx {
+class DataContext {
     val checksumToAppVersions: MutableMap<Checksum, MutableSet<AppVersion>> = MutableMap()
     val appVersions: MutableMap<AppVersion, MutableSet<Checksum>> = MutableMap()
     val pool = Pool()

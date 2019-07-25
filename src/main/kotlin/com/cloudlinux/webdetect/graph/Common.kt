@@ -8,9 +8,8 @@ import com.cloudlinux.webdetect.MutableSet
 fun createGraph(
     checksumToAppVersion: Map<Checksum, Set<AppVersion>>,
     appVersions: Set<AppVersion>
-): Pair<MutableMap<AppVersion, AppVersionGraphEntry>, MutableMap<Checksum, ChecksumGraphEntry>> {
+): MutableMap<AppVersion, AppVersionGraphEntry> {
     val avDict = MutableMap<AppVersion, AppVersionGraphEntry>(appVersions.size, 1f)
-    val csDict = MutableMap<Checksum, ChecksumGraphEntry>(/*checksumToAppVersion.size, 1f*/)
 
     for (av in appVersions) {
         avDict[av] = AppVersionGraphEntry(av, MutableSet())
@@ -21,12 +20,11 @@ fun createGraph(
             MutableSet(avs.size, 1f),
             MutableSet()
         )
-//        csDict[cs] = csEntry
         for (av in avs) {
             val avEntry = avDict[av]!!
             csEntry.appVersions.add(avEntry)
             avEntry.checksums.add(csEntry)
         }
     }
-    return avDict to csDict
+    return avDict
 }

@@ -1,5 +1,6 @@
 package com.cloudlinux.webdetect
 
+import com.cloudlinux.webdetect.bloomfilter.BloomFilterSolutionParameters
 import com.cloudlinux.webdetect.bloomfilter.bloomFilterBasedSolution
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -15,16 +16,20 @@ fun main(args: Array<String>) {
     val detect = if (args.size == 3) Optional.of(args[2])
     else Optional.empty()
 
-    val pooledCtx = PooledCtx()
-    read(
-        `in`,
-        "\t",
-        { it },
-        { (app, version, hash) -> pooledCtx.doPooling(app, version, hash) }
-    )
+    val pooledCtx = DataContext()
+    read(`in`, "\t") { (app, version, hash) -> pooledCtx.doPooling(app, version, hash) }
     pooledCtx.pool.cleanup()
 
-    bloomFilterBasedSolution(pooledCtx, File(detect.get()).readLines())
+    bloomFilterBasedSolution(
+        BloomFilterSolutionParameters(
+            bloomFilterFalsePositiveProbability = 0.01,
+            leafsPerNode = 16,
+            matchingThreshold = 0.5,
+            bloomFilterMinimumSize = 100
+        ),
+        pooledCtx,
+        File(detect.get()).readLines()
+    )
 //    graphBasedSolution(pooledCtx, Optional.of("$out.json"), Optional.of("$out.ldb"))
 }
 

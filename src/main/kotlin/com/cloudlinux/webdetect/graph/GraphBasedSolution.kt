@@ -1,8 +1,8 @@
 package com.cloudlinux.webdetect.graph
 
+import com.cloudlinux.webdetect.DataContext
 import com.cloudlinux.webdetect.MutableMap
 import com.cloudlinux.webdetect.MutableSet
-import com.cloudlinux.webdetect.PooledCtx
 import com.cloudlinux.webdetect.graph.bfs.BfsBasedSolution
 import com.cloudlinux.webdetect.graph.grouping.MergeAppVersionsWithSameChecksumsTask
 import com.cloudlinux.webdetect.graph.grouping.similarityMatrices
@@ -13,11 +13,11 @@ private const val undetectedOutputPath = "undetected"
 private const val matricesOutputPath = "matrices"
 
 fun graphBasedSolution(
-    pooledCtx: PooledCtx,
+    pooledCtx: DataContext,
     jsonOut: Optional<String> = Optional.empty(),
     levelDbOut: Optional<String> = Optional.empty()
 ) {
-    val (avDict, csDict) = createGraph(
+    val avDict = createGraph(
         pooledCtx.checksumToAppVersions.filter { (_, v) -> v.mapTo(MutableSet()) { it.apps().single() }.size == 1 },
         pooledCtx.appVersions.keys
     )
