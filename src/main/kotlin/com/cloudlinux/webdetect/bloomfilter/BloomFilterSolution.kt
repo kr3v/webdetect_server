@@ -1,6 +1,7 @@
 package com.cloudlinux.webdetect.bloomfilter
 
 import com.cloudlinux.webdetect.DataContext
+import java.io.PrintWriter
 
 data class BloomFilterSolutionParameters(
     val bloomFilterFalsePositiveProbability: Double,
@@ -14,7 +15,7 @@ fun bloomFilterBasedSolution(
     dataContext: DataContext,
     toBeDetected: List<String>
 ) {
-    val filter = buildLayeredBloomFilter(solutionContext, dataContext)
+    val filter = buildHierarchicalBloomFilter(solutionContext, dataContext)
     val (matches, falsePositives) = doMatching(toBeDetected, filter)
-    debugPrint(solutionContext, matches, falsePositives)
+    PrintWriter(System.out).print(solutionContext, matches, falsePositives)
 }

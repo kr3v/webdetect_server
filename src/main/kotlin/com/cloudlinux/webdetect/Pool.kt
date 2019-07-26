@@ -12,6 +12,8 @@ typealias MutableLinkedSet<T> = ObjectLinkedOpenHashSet<T>
 typealias MutableMap<K, V> = Object2ObjectOpenHashMap<K, V>
 typealias SortedMap<K, V> = Object2ObjectAVLTreeMap<K, V>
 typealias SortedSet<T> = ObjectOpenHashSet<T>
+typealias KMutableSet<T> = kotlin.collections.MutableSet<T>
+typealias KMutableMap<K, V> = kotlin.collections.MutableMap<K, V>
 
 class DataContext {
     val checksumToAppVersions: MutableMap<Checksum, MutableSet<AppVersion>> = MutableMap()

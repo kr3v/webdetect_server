@@ -6,13 +6,14 @@ import com.cloudlinux.webdetect.DataContext
 import com.cloudlinux.webdetect.MutableSet
 import orestes.bloomfilter.FilterBuilder
 import java.lang.Integer.max
+import java.util.BitSet
 import kotlin.streams.toList
 
-fun buildLayeredBloomFilter(
+fun buildHierarchicalBloomFilter(
     solutionCtx: BloomFilterSolutionParameters,
     dataCtx: DataContext
-): LayeredBloomFilter<Pair<List<String>, LayeredBloomFilter<List<String>>>> {
-    val lbfBuilder = LayeredBloomFilterBuilder(solutionCtx)
+): HierarchicalBloomFilter<Pair<List<String>, HierarchicalBloomFilter<List<String>>>> {
+    val lbfBuilder = HierarchicalBloomFilterBuilder(solutionCtx)
     return lbfBuilder.build(
         buildLinearBloomFilter(solutionCtx, dataCtx).map { (filter, value) ->
             val (app, versionFilters) = value
@@ -41,10 +42,11 @@ fun bloomFilter(appVersions: List<AppVersion>, ctx: DataContext, solutionCtx: Bl
     bloomFilter(appVersions.flatMapTo(MutableSet()) { ctx.appVersions[it]!! }, solutionCtx)
 
 fun bloomFilter(checksums: MutableSet<Checksum>, solutionCtx: BloomFilterSolutionParameters): ImmutableBloomFilter {
-    val bloomFilter = FilterBuilder(
+    val cfg = FilterBuilder(
         max(solutionCtx.bloomFilterMinimumSize, checksums.size),
         solutionCtx.bloomFilterFalsePositiveProbability
-    ).buildBloomFilter<String>()
-    checksums.forEach { checksum -> bloomFilter.addRaw(checksum.asByteArray()) }
-    return ImmutableBloomFilter(bloomFilter.bitSet, bloomFilter.config(), checksums)
+    ).complete()
+    val immutableBloomFilter = ImmutableBloomFilter(BitSet(cfg.size()), cfg, checksums)
+    checksums.forEach { checksum -> immutableBloomFilter.addRaw(checksum.bloomFilterHash1, checksum.bloomFilterHash2) }
+    return immutableBloomFilter
 }

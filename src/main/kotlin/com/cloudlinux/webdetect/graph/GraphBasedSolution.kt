@@ -1,22 +1,25 @@
 package com.cloudlinux.webdetect.graph
 
+import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.DataContext
 import com.cloudlinux.webdetect.MutableMap
 import com.cloudlinux.webdetect.MutableSet
 import com.cloudlinux.webdetect.graph.bfs.BfsBasedSolution
 import com.cloudlinux.webdetect.graph.grouping.MergeAppVersionsWithSameChecksumsTask
-import com.cloudlinux.webdetect.graph.grouping.similarityMatrices
-import java.io.File
-import java.util.Optional
 
 private const val undetectedOutputPath = "undetected"
 private const val matricesOutputPath = "matrices"
 
+data class GraphBasedSolutionResult(
+    val avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
+    val definedAvDict: MutableMap<AppVersion, AppVersionGraphEntry>,
+    val undefinedAvDict: Map<AppVersion, AppVersionGraphEntry>
+)
+
 fun graphBasedSolution(
     pooledCtx: DataContext,
-    jsonOut: Optional<String> = Optional.empty(),
-    levelDbOut: Optional<String> = Optional.empty()
-) {
+    sufficientChecksumsRange: IntProgression
+): GraphBasedSolutionResult {
     val avDict = createGraph(
         pooledCtx.checksumToAppVersions.filter { (_, v) -> v.mapTo(MutableSet()) { it.apps().single() }.size == 1 },
         pooledCtx.appVersions.keys
@@ -25,16 +28,12 @@ fun graphBasedSolution(
 
     MergeAppVersionsWithSameChecksumsTask(avDict, MutableMap()).process()
 
-    val MAX = 5
-    val MIN = 1
-    val definedAvDict = BfsBasedSolution(avDict, MAX downTo MIN).process()
-
-    statsBfs(definedAvDict, avDict, MAX)
-    GraphBasedSolutionSerializer(avDict, definedAvDict, MAX).serialize(jsonOut, levelDbOut)
-
+    val definedAvDict = BfsBasedSolution(avDict, sufficientChecksumsRange).process()
     val undetected = avDict - definedAvDict.keys
-    writeUndetected(undetected.keys, avDict, File(undetectedOutputPath).printWriter())
 
-    val matrices = similarityMatrices(undetected)
-    writeSimilarityMatrices(matrices, File(matricesOutputPath).printWriter())
+    return GraphBasedSolutionResult(
+        avDict,
+        definedAvDict,
+        undetected
+    )
 }

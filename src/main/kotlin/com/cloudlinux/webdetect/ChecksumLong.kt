@@ -1,5 +1,6 @@
 package com.cloudlinux.webdetect
 
+import com.cloudlinux.webdetect.bloomfilter.murmurHash
 import java.nio.ByteBuffer
 import java.util.Arrays
 
@@ -25,6 +26,15 @@ data class ChecksumLong(
     val ll: LongArray,
     val hash: Int = Arrays.hashCode(ll)
 ) : Comparable<ChecksumLong> {
+
+    val bloomFilterHash1: Long
+    val bloomFilterHash2: Long
+
+    init {
+        val (h1, h2) = murmurHash(this.asByteArray())
+        bloomFilterHash1 = h1
+        bloomFilterHash2 = h2
+    }
 
     override fun compareTo(other: ChecksumLong): Int {
         for (idx in ll.indices) {

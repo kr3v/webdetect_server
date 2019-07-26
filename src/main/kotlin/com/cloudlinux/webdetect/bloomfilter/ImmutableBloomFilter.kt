@@ -9,6 +9,15 @@ data class ImmutableBloomFilter(
     val config: FilterBuilder,
     val items: MutableSet<Checksum>
 ) {
+    fun addRaw(hash1: Long, hash2: Long) {
+        val k = config.hashes()
+        val m = config.size()
+        for (i in 0 until k) {
+            val position = ((hash1 + i * hash2) % m).toInt()
+            setBit(position, true)
+        }
+    }
+
     fun contains(hash1: Long, hash2: Long): Boolean {
         val k = config.hashes()
         val m = config.size()
@@ -22,4 +31,5 @@ data class ImmutableBloomFilter(
     }
 
     private fun getBit(index: Int) = bloom.get(index)
+    private fun setBit(index: Int, state: Boolean) = bloom.set(index, state)
 }

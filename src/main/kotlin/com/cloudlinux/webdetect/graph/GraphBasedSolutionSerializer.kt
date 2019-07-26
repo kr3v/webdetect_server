@@ -41,12 +41,11 @@ class GraphBasedSolutionSerializer(
 
         val checksums = definedAvDict
             .values
-            .map {
+            .flatMap {
                 it.checksums
                     .sortedBy { cs -> cs.dependsOn.size }
                     .take(maxChecksums)
             }
-            .flatten()
             .associateTo(MutableMap()) {
                 val appVersionsAndListOfDependencies = IntArray(1 + it.dependsOn.size)
                 appVersionsAndListOfDependencies[0] = avToInt.getInt(it.appVersions.single().key)
