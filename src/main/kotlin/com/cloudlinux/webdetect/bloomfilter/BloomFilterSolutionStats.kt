@@ -33,11 +33,9 @@ fun doMatching(
         .parallelStream()
         .distinct()
         .forEach { csl ->
-            val bytes = csl.asByteArray()
-            val (hash1, hash2) = murmurHash(bytes)
-            for (appNode in twoLevelBf.lookup(hash1, hash2)) {
+            for (appNode in twoLevelBf.lookup(csl)) {
                 val (app, secondLevel) = appNode.value
-                for (versionNode in secondLevel.lookup(hash1, hash2)) {
+                for (versionNode in secondLevel.lookup(csl)) {
                     val checksums = versionNode.filter.items
                     val key = AppVersion.Single(app.single(), versionNode.value.single()) to checksums
                     if (csl in checksums) {

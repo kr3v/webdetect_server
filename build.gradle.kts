@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.3.21"
+    kotlin("jvm") version "1.3.41"
 }
 
 group = "com.cloudlinux"
@@ -22,6 +22,16 @@ dependencies {
 
     implementation("org.fusesource.leveldbjni:leveldbjni-all:1.8")
     implementation("org.postgresql:postgresql:42.2.6")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.5.1")
+    testImplementation("org.assertj:assertj-core:3.12.2")
+}
+
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
 }
 
 tasks.withType<KotlinCompile> {

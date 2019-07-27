@@ -46,7 +46,12 @@ fun bloomFilter(checksums: MutableSet<Checksum>, solutionCtx: BloomFilterSolutio
         max(solutionCtx.bloomFilterMinimumSize, checksums.size),
         solutionCtx.bloomFilterFalsePositiveProbability
     ).complete()
-    val immutableBloomFilter = ImmutableBloomFilter(BitSet(cfg.size()), cfg, checksums)
-    checksums.forEach { checksum -> immutableBloomFilter.addRaw(checksum.bloomFilterHash1, checksum.bloomFilterHash2) }
+    val immutableBloomFilter = ImmutableBloomFilter(
+        BitSet(cfg.size()),
+        cfg,
+        checksums,
+        ImmutableBloomFilter.HashingType.SHA256
+    )
+    checksums.forEach { checksum -> immutableBloomFilter.addRaw(checksum) }
     return immutableBloomFilter
 }

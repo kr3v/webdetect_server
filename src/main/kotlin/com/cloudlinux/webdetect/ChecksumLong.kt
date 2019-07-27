@@ -29,11 +29,13 @@ data class ChecksumLong(
 
     val bloomFilterHash1: Long
     val bloomFilterHash2: Long
+    val byteArray: ByteArray
 
     init {
         val (h1, h2) = murmurHash(this.asByteArray())
         bloomFilterHash1 = h1
         bloomFilterHash2 = h2
+        byteArray = asByteArray()
     }
 
     override fun compareTo(other: ChecksumLong): Int {
@@ -48,7 +50,7 @@ data class ChecksumLong(
     override fun hashCode() = hash
     override fun toString(): String = asHexString()
 
-    fun asByteArray(): ByteArray {
+    private fun asByteArray(): ByteArray {
         val result = ByteArray(32)
         val bb = ByteBuffer.wrap(result)
         ll.forEach { bb.putLong(it) }

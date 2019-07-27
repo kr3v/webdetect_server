@@ -1,6 +1,7 @@
 package com.cloudlinux.webdetect.bloomfilter
 
 import com.cloudlinux.webdetect.Checksum
+import com.cloudlinux.webdetect.ChecksumLong
 import com.cloudlinux.webdetect.MutableSet
 import kotlin.streams.toList
 
@@ -36,26 +37,26 @@ class HierarchicalBloomFilterBuilder(
 class HierarchicalBloomFilter<V>(
     private val root: Node<V>
 ) {
-    fun lookup(l1: Long, l2: Long) = root.lookup(l1, l2)
+    fun lookup(csl: ChecksumLong) = root.lookup(csl)
     fun size() = root.size()
 
     sealed class Node<V>(
         val filter: ImmutableBloomFilter
     ) {
-        abstract fun lookup(l1: Long, l2: Long): List<Leaf<V>>
+        abstract fun lookup(csl: ChecksumLong): List<Leaf<V>>
         abstract fun size(): Long
 
         class Leaf<V>(filter: ImmutableBloomFilter, val value: V) : Node<V>(filter) {
-            override fun lookup(l1: Long, l2: Long) =
-                if (filter.contains(l1, l2)) listOf(this)
+            override fun lookup(csl: ChecksumLong) =
+                if (filter.contains(csl)) listOf(this)
                 else emptyList()
 
             override fun size(): Long = filter.config.size().toLong()
         }
 
         class Intermediate<V>(filter: ImmutableBloomFilter, private val leafs: List<Node<V>>) : Node<V>(filter) {
-            override fun lookup(l1: Long, l2: Long) =
-                if (filter.contains(l1, l2)) leafs.flatMap { it.lookup(l1, l2) }
+            override fun lookup(csl: ChecksumLong) =
+                if (filter.contains(csl)) leafs.flatMap { it.lookup(csl) }
                 else emptyList()
 
             override fun size(): Long = filter.config.size() + leafs.fold(0L) { acc, node -> acc + node.size() }

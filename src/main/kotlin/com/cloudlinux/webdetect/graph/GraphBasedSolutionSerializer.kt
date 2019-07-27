@@ -88,7 +88,7 @@ class GraphBasedSolutionSerializer(
             .use { db ->
                 val wb = db.createWriteBatch()
                 for ((k, v) in checksums) {
-                    wb.put(k.asByteArray(), v.asByteArray())
+                    wb.put(k.byteArray, v.asByteArray())
                 }
                 for ((k, v) in appVersions) {
                     wb.put(k.asByteArray(), OBJECT_MAPPER.writeValueAsBytes(v))
