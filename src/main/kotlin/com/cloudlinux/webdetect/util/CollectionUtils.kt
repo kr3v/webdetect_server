@@ -1,6 +1,9 @@
 package com.cloudlinux.webdetect.util
 
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
+import it.unimi.dsi.fastutil.objects.ObjectArrayList
+import java.util.stream.Collectors
+import java.util.stream.Stream
 
 fun exactlyOneIntersect(lhs: Set<AppVersionGraphEntry>, rhs: Set<AppVersionGraphEntry>) =
     if (lhs.size > rhs.size) exactlyOneIntersectImpl(rhs, lhs) else exactlyOneIntersectImpl(lhs, rhs)
@@ -17,16 +20,15 @@ private fun exactlyOneIntersectImpl(
     return found
 }
 
-fun countIntersects(lhs: Set<AppVersionGraphEntry>, rhs: Set<AppVersionGraphEntry>) =
+fun <T> countIntersects(lhs: Set<T>, rhs: Set<T>) =
     if (lhs.size > rhs.size) countIntersectsImpl(rhs, lhs) else countIntersectsImpl(lhs, rhs)
 
-private fun countIntersectsImpl(
-    lhs: Set<AppVersionGraphEntry>,
-    rhs: Set<AppVersionGraphEntry>
-): Int {
+private fun <T> countIntersectsImpl(lhs: Set<T>, rhs: Set<T>): Int {
     var res = 0
     for (l in lhs)
         if (l in rhs)
             res++
     return res
 }
+
+fun <T> Stream<T>.toList(size: Int): ObjectArrayList<T> = collect(Collectors.toCollection { ObjectArrayList<T>(size) })

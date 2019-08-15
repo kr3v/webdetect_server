@@ -1,17 +1,18 @@
 package com.cloudlinux.webdetect
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectAVLTreeMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.objects.Object2ObjectRBTreeMap
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
+import it.unimi.dsi.fastutil.objects.ObjectRBTreeSet
 
 typealias Checksum = ChecksumLong
 
 typealias MutableSet<T> = ObjectOpenHashSet<T>
 typealias MutableLinkedSet<T> = ObjectLinkedOpenHashSet<T>
 typealias MutableMap<K, V> = Object2ObjectOpenHashMap<K, V>
-typealias SortedMap<K, V> = Object2ObjectAVLTreeMap<K, V>
-typealias SortedSet<T> = ObjectOpenHashSet<T>
+typealias SortedMap<K, V> = Object2ObjectRBTreeMap<K, V>
+typealias SortedSet<T> = ObjectRBTreeSet<T>
 typealias KMutableSet<T> = kotlin.collections.MutableSet<T>
 typealias KMutableMap<K, V> = kotlin.collections.MutableMap<K, V>
 

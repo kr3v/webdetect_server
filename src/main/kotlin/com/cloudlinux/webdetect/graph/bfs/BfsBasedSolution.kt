@@ -5,6 +5,13 @@ import com.cloudlinux.webdetect.MutableLinkedSet
 import com.cloudlinux.webdetect.MutableMap
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.graph.ChecksumGraphEntry
+import com.cloudlinux.webdetect.graph.HasIntProperties
+
+var HasIntProperties.exclusiveChecksums
+    get() = properties[0]
+    set(value) {
+        properties[0] = value
+    }
 
 class BfsBasedSolution(
     private val avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
@@ -15,11 +22,11 @@ class BfsBasedSolution(
 
     init {
         for (av in avDict.values) {
-            av.intField = av.checksums.sumBy { if (it.appVersions.size == 1) 1 else 0 }
+            av.properties = intArrayOf(av.checksums.sumBy { if (it.appVersions.size == 1) 1 else 0 })
         }
     }
 
-    private fun isDefined(av: AppVersionGraphEntry) = av.intField >= sufficientChecksums
+    private fun isDefined(av: AppVersionGraphEntry) = av.exclusiveChecksums >= sufficientChecksums
 
     private fun removeNonExclusiveChecksums(av: AppVersionGraphEntry) {
         val iterator = av.checksums.iterator()
@@ -37,9 +44,13 @@ class BfsBasedSolution(
     private fun updateQueue(checksum: ChecksumGraphEntry) {
         for (adjacentAppVersion in checksum.appVersions) {
             if (checksum.appVersions.size == 1) {
-                adjacentAppVersion.intField++
-                if (adjacentAppVersion.intField == sufficientChecksums) {
+                adjacentAppVersion.exclusiveChecksums++
+                if (adjacentAppVersion.exclusiveChecksums == sufficientChecksums) {
+//                    if (adjacentAppVersion.key.versions().any { it.isReleaseVersion() }) {
                     bfsQueue.add(adjacentAppVersion)
+//                    } else {
+//                        bfsQueue.addAndMoveToFirst(adjacentAppVersion)
+//                    }
                 }
             }
         }

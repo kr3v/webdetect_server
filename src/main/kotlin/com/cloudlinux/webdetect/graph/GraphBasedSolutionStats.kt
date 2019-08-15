@@ -16,7 +16,7 @@ fun statsBfs(
         .groupBy { min(max, it.checksums.size) }
         .mapValues { (_, v) -> v.size }
         .toSortedMap()
-        .forEach { t, u -> println("$t -> $u") }
+        .forEach { (t, u) -> println("$t -> $u") }
 }
 
 fun statsPq(
@@ -29,7 +29,7 @@ fun statsPq(
         .groupBy { min(max, it.checksums.size) }
         .mapValues { (_, v) -> v.size }
         .toSortedMap()
-        .forEach { t, u -> println("$t -> $u") }
+        .forEach { (t, u) -> println("$t -> $u") }
 }
 
 fun writeUndetected(

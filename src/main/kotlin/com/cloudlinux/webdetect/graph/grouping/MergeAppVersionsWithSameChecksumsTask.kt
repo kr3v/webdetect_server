@@ -26,7 +26,7 @@ class MergeAppVersionsWithSameChecksumsTask(
         if (appVersionsToBeMerged.size == 1) return
         val mergedAv = AppVersion.Merged(appVersionsToBeMerged.mapTo(MutableSet()) { it.key })
         val mergedAvGraphEntry = AppVersionGraphEntry(mergedAv, checksums)
-        for (av in appVersionsToBeMerged.toList()) {
+        for (av in appVersionsToBeMerged.toList()) { // todo: should we do a copy?
             avDict.remove(av.key)
         }
         for (cs in checksums) {

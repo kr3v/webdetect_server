@@ -5,9 +5,12 @@ import com.cloudlinux.webdetect.bloomfilter.bloomFilterBasedSolution
 import com.cloudlinux.webdetect.graph.GraphBasedSolutionSerializer
 import com.cloudlinux.webdetect.graph.graphBasedSolution
 import com.cloudlinux.webdetect.graph.statsBfs
+import com.cloudlinux.webdetect.graph.writeUndetected
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import java.io.File
+import java.io.FileOutputStream
+import java.io.PrintWriter
 import java.util.Optional
 
 val OBJECT_MAPPER = jacksonObjectMapper()
@@ -22,14 +25,23 @@ fun main(args: Array<String>) {
     read(`in`, "\t") { (app, version, hash) -> pooledCtx.doPooling(app, version, hash) }
     pooledCtx.pool.cleanup()
 
+    for (d in detect) {
+        File(d)
+            .readLines()
+            .distinct()
+            .filterNot {
+                pooledCtx.checksumToAppVersions[it.asChecksumLong()]
+                    ?.any { it.appVersions().any { it.app == "wordpress-cores" } } ?: true
+            }
+            .forEach { println(it to pooledCtx.checksumToAppVersions[it.asChecksumLong()]?.size) }
+    }
+
     val max = 5
     val min = 1
-    val (_, definedAvDict, _) = graphBasedSolution(
+    graphSolution(
         pooledCtx,
-        max downTo min
+        out
     )
-
-    find(definedAvDict, detect)
 }
 
 private fun bloomFilterSolution(
@@ -51,15 +63,16 @@ private fun bloomFilterSolution(
 private fun graphSolution(pooledCtx: DataContext, out: String) {
     val max = 5
     val min = 1
-    val (avDict, definedAvDict, _) = graphBasedSolution(
+    val (avDict, _, definedAvDict, undetected) = graphBasedSolution(
         pooledCtx,
         max downTo min
     )
     statsBfs(definedAvDict, avDict, max)
     GraphBasedSolutionSerializer(avDict, definedAvDict, max).serialize(
         Optional.of("$out.json"),
-        Optional.of("$out.ldb")
+        Optional.empty()
     )
+    writeUndetected(undetected.keys, avDict, PrintWriter(FileOutputStream(File("undetected"))))
 }
 
 private fun processByDb(pathToShaList: String, pathToDb: String) = processByDb(

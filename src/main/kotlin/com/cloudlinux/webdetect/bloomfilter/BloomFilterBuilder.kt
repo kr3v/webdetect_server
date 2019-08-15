@@ -4,10 +4,10 @@ import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.Checksum
 import com.cloudlinux.webdetect.DataContext
 import com.cloudlinux.webdetect.MutableSet
+import com.cloudlinux.webdetect.util.toList
 import orestes.bloomfilter.FilterBuilder
 import java.lang.Integer.max
 import java.util.BitSet
-import kotlin.streams.toList
 
 fun buildHierarchicalBloomFilter(
     solutionCtx: BloomFilterSolutionParameters,
@@ -22,21 +22,25 @@ fun buildHierarchicalBloomFilter(
     )
 }
 
-fun buildLinearBloomFilter(solutionCtx: BloomFilterSolutionParameters, dataCtx: DataContext) =
-    dataCtx.appVersions.keys
-        .groupBy { it.apps() }
-        .entries
+fun buildLinearBloomFilter(
+    solutionCtx: BloomFilterSolutionParameters,
+    dataCtx: DataContext
+): List<Pair<ImmutableBloomFilter, Pair<List<String>, List<Pair<ImmutableBloomFilter, List<String>>>>>> {
+    val appEntries = dataCtx.appVersions.keys.groupBy { it.apps() }.entries
+    return appEntries
         .parallelStream()
+        .unordered()
         .map { (k, v) ->
-            val versionsBf = v
-                .groupBy { it.versions() }
-                .entries
+            val versionEntries = v.groupBy { it.versions() }.entries
+            val versionsBf = versionEntries
                 .parallelStream()
+                .unordered()
                 .map { (versions, v) -> bloomFilter(v, dataCtx, solutionCtx) to versions }
-                .toList()
+                .toList(versionEntries.size)
             bloomFilter(v, dataCtx, solutionCtx) to (k to versionsBf)
         }
-        .toList()
+        .toList(appEntries.size)
+}
 
 fun bloomFilter(appVersions: List<AppVersion>, ctx: DataContext, solutionCtx: BloomFilterSolutionParameters) =
     bloomFilter(appVersions.flatMapTo(MutableSet()) { ctx.appVersions[it]!! }, solutionCtx)

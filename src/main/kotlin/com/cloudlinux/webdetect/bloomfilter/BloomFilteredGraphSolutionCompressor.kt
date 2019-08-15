@@ -1,21 +1,19 @@
-package com.cloudlinux.webdetect
+package com.cloudlinux.webdetect.bloomfilter
 
-import com.cloudlinux.webdetect.bloomfilter.BloomFilterSolutionParameters
-import com.cloudlinux.webdetect.bloomfilter.HierarchicalBloomFilter
-import com.cloudlinux.webdetect.bloomfilter.HierarchicalBloomFilterBuilder
-import com.cloudlinux.webdetect.bloomfilter.ImmutableBloomFilter
-import com.cloudlinux.webdetect.bloomfilter.bloomFilter
+import com.cloudlinux.webdetect.AppVersion
+import com.cloudlinux.webdetect.ChecksumLong
+import com.cloudlinux.webdetect.MutableMap
+import com.cloudlinux.webdetect.MutableSet
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
-import java.io.File
+import com.cloudlinux.webdetect.util.toList
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
-import kotlin.streams.toList
 
 /// defines best params for [BloomFilterSolutionParameters] via brute-force
 fun find(
     definedAvDict: MutableMap<AppVersion, AppVersionGraphEntry>,
-    detect: List<String>
+    detect: List<ChecksumLong>
 ) {
     definedAvDict.forEach { (_, v) ->
         v.checksums.removeAll(v.checksums - v.checksums
@@ -24,15 +22,14 @@ fun find(
     }
 
     val defined = definedAvDict.values.map { it.checksums.mapTo(MutableSet()) { it.key } to it.key }
-    val detectTmp = detect.flatMapTo(MutableSet()) { File(it).readLines() }.map(String::asChecksumLong)
 
     definedAvDict.clear()
     definedAvDict.trim()
     System.gc()
 
-    val falsePositiveRatiosRange = IntProgression.fromClosedRange(51, 202, 5)
-    val bloomFilterMinimumSizeRange = IntProgression.fromClosedRange(5, 15, 1)
-    val leafsRange = IntProgression.fromClosedRange(2, 17, 1).toList()
+    val falsePositiveRatiosRange = IntProgression.fromClosedRange(1, 162, 10).map { it.toDouble() / 1000 }
+    val bloomFilterMinimumSizeRange = IntProgression.fromClosedRange(6, 30, 3)
+    val leafsRange = listOf(2, 4, 8, 16, 32, 64)
 
     data class T1(
         val fp: Double,
@@ -62,7 +59,7 @@ fun find(
     val total = AtomicInteger()
     val correct = AtomicInteger()
     falsePositiveRatiosRange
-        .flatMap { fp -> bloomFilterMinimumSizeRange.map { bf -> T1(fp.toDouble() / 1000, bf) } }
+        .flatMap { fp -> bloomFilterMinimumSizeRange.map { bf -> T1(fp, bf) } }
         .parallelStream()
         .flatMap { (fp, bfSize) ->
             val cfg1 = BloomFilterSolutionParameters(
@@ -71,7 +68,8 @@ fun find(
                 matchingThreshold = 0.5,
                 bloomFilterMinimumSize = bfSize
             )
-            val filters = defined.parallelStream().map { bloomFilter(it.first, cfg1) to it.second }.toList()
+            val filters = defined.parallelStream().unordered().map { bloomFilter(it.first, cfg1) to it.second }
+                .toList(defined.size)
             val filtersTotalSize = filters.fold(0L) { acc, (a, _) -> acc + a.config.size().toLong() }
             leafsRange.stream().map { T2(fp, bfSize, it, filters, filtersTotalSize) }
         }
@@ -86,25 +84,35 @@ fun find(
             val lbf = lbfBuilder.build(filters)
             T3(cfg, lbf, (filtersTotalSize + lbf.size()) / 8)
         }
-        .filter { (cfg, lbf, _) ->
+        .filter {
+            val (cfg, lbf, _) = it
             val chm = ConcurrentHashMap<AppVersion, AtomicInteger>()
-            val k = detectTmp
+            val failed = ConcurrentHashMap.newKeySet<AppVersion>()
+            val k = detect
                 .parallelStream()
                 .allMatch { csl ->
                     for (match in lbf.lookup(csl)) {
                         if (csl !in match.filter.items) {
                             val v = chm.computeIfAbsent(match.value) { AtomicInteger() }.incrementAndGet()
                             if (v.toDouble() / match.filter.items.size > cfg.matchingThreshold) {
-                                return@allMatch false
+                                failed.add(match.value)
+                                if (failed.size > 1000) {
+                                    return@allMatch false
+                                }
                             }
                         }
                     }
                     true
                 }
             total.getAndIncrement()
-            if (k) correct.getAndIncrement()
+            if (k) {
+                correct.getAndIncrement()
+                println("$it\t${failed.size}")
+            }
             k
         }
-        .forEach(::println)
-    println("$correct / $total")
+//        .collect(Collectors.toList())
+//        .sortedByDescending { it.filtersTotalSize }
+        .forEach { /* no-op */ }
+    println("$correct / $total = ${correct.toDouble() / total.toDouble()}")
 }

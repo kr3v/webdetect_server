@@ -3,13 +3,27 @@ package com.cloudlinux.webdetect.graph.pq
 import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.MutableMap
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
+import com.cloudlinux.webdetect.graph.HasIntProperties
 
-class PriorityQueueBasedSolution internal constructor(
+var HasIntProperties.exclusiveChecksums
+    get() = properties[1]
+    set(value) {
+        properties[1] = value
+    }
+
+class PriorityQueueBasedSolution private constructor(
     private val queue: PriorityQueue<AppVersionGraphEntry>
 ) {
 
-    constructor(avDict: MutableMap<AppVersion, AppVersionGraphEntry>)
-        : this(PriorityQueue(avDict.values) { it.checksums.sumBy { cs -> if (cs.appVersions.size == 1) 1 else 0 } })
+    constructor(avDict: MutableMap<AppVersion, AppVersionGraphEntry>) : this(
+        PriorityQueue(
+            avDict.values.onEach {
+                it.properties = IntArray(2)
+                it.exclusiveChecksums = it.checksums.sumBy { cs -> if (cs.appVersions.size == 1) 1 else 0 }
+            },
+            compareBy({ it.exclusiveChecksums }, { it.checksums.size })
+        )
+    )
 
     private fun removeNonExclusiveChecksums(av: AppVersionGraphEntry) {
         val iterator = av.checksums.iterator()
@@ -21,14 +35,15 @@ class PriorityQueueBasedSolution internal constructor(
             checksum.dependsOn.add(av)
             checksum.appVersions.remove(av)
             for (adjacentAppVersion in checksum.appVersions) {
-                queue.inc(adjacentAppVersion, 1)
+                adjacentAppVersion.exclusiveChecksums += 1
+                queue.update(adjacentAppVersion)
             }
         }
     }
 
     fun process() {
         while (queue.isNotEmpty()) {
-            removeNonExclusiveChecksums(queue.pop().value)
+            removeNonExclusiveChecksums(queue.pop())
         }
     }
 }
