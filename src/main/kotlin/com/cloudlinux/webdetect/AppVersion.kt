@@ -23,7 +23,7 @@ sealed class AppVersion {
     }
 
     data class Merged(
-        val appVersions: MutableSet<AppVersion>
+        val appVersions: FMutableSet<AppVersion>
     ) : AppVersion() {
         override fun apps(): List<String> = appVersions.flatMap { it.apps() }
         override fun versions(): List<String> = appVersions.flatMap { it.versions() }

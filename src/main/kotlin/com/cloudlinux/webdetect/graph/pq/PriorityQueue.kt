@@ -3,12 +3,9 @@ package com.cloudlinux.webdetect.graph.pq
 import com.cloudlinux.webdetect.graph.HasIntProperties
 import java.util.Comparator
 
-var HasIntProperties.pqIndex
-    get() = properties[0]
-    set(value) {
-        properties[0] = value
-    }
-
+/**
+ * Max-PQ implementation via binary heap on array. Uses [pqIndex] as index within queue to support [update].
+ */
 internal class PriorityQueue<T : HasIntProperties> private constructor(
     private val values: MutableList<T>,
     private val cmp: Comparator<T>,
@@ -56,7 +53,7 @@ internal class PriorityQueue<T : HasIntProperties> private constructor(
         }
     }
 
-    @Suppress("NAME_SHADOWING", "SameParameterValue")
+    @Suppress("NAME_SHADOWING")
     private fun down(idx: Int) {
         var idx = idx
         while (idx * 2 + 1 <= last) {

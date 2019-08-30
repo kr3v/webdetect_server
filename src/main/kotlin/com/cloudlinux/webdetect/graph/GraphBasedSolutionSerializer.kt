@@ -2,7 +2,7 @@ package com.cloudlinux.webdetect.graph
 
 import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.Checksum
-import com.cloudlinux.webdetect.MutableMap
+import com.cloudlinux.webdetect.FMutableMap
 import com.cloudlinux.webdetect.OBJECT_MAPPER
 import com.cloudlinux.webdetect.util.asByteArray
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
@@ -12,12 +12,13 @@ import java.io.File
 import java.util.Optional
 import java.util.concurrent.atomic.AtomicInteger
 
-private typealias Checksums = MutableMap<Checksum, IntArray>
-private typealias AppVersions = MutableMap<Int, List<AppVersion.Single>>
+private typealias Checksums = FMutableMap<Checksum, IntArray>
+private typealias AppVersions = FMutableMap<Int, AppVersionGraphEntry>
+private typealias AppVersionsReversed = Object2IntOpenHashMap<AppVersion>
 
 class GraphBasedSolutionSerializer(
-    private val avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
-    private val definedAvDict: MutableMap<AppVersion, AppVersionGraphEntry>,
+    private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry>,
+    private val definedAvDict: Map<AppVersion, AppVersionGraphEntry>,
     private val maxChecksums: Int
 ) {
     fun serialize(
@@ -25,8 +26,8 @@ class GraphBasedSolutionSerializer(
         levelDbOut: Optional<String> = Optional.empty()
     ) {
         if (!jsonOut.isPresent && !levelDbOut.isPresent) return
-        val (checksums, appVersions) = prepareToSerialize()
-        jsonOut.ifPresent { serializeAsJson(checksums, appVersions, it) }
+        val (checksums, appVersions, avR) = prepareToSerialize()
+        jsonOut.ifPresent { serializeAsJson(checksums, appVersions, avR, it) }
         levelDbOut.ifPresent { serializeAsLevelDb(checksums, appVersions, it) }
         checksums.clear()
         checksums.trim()
@@ -34,7 +35,7 @@ class GraphBasedSolutionSerializer(
         appVersions.trim()
     }
 
-    private fun prepareToSerialize(): Pair<Checksums, AppVersions> {
+    private fun prepareToSerialize(): Triple<Checksums, AppVersions, AppVersionsReversed> {
         val idx = AtomicInteger()
         val avToInt = avDict.mapValuesTo(Object2IntOpenHashMap()) { idx.getAndIncrement() }
         avToInt.defaultReturnValue(-1)
@@ -46,31 +47,34 @@ class GraphBasedSolutionSerializer(
                     .sortedBy { cs -> cs.dependsOn.size }
                     .take(maxChecksums)
             }
-            .associateTo(MutableMap()) {
-                val appVersionsAndListOfDependencies = IntArray(1 + it.dependsOn.size)
-                appVersionsAndListOfDependencies[0] = avToInt.getInt(it.appVersions.single().key)
-                it.dependsOn.forEachIndexed { index, value ->
-                    appVersionsAndListOfDependencies[index + 1] = avToInt.getInt(value.key)
-                }
-                it.key to appVersionsAndListOfDependencies
+            .associateTo(FMutableMap()) {
+                val avsAndDependsOn = IntArray(1 + it.dependsOn.size)
+                avsAndDependsOn[0] = avToInt.getInt(it.appVersions.single().key)
+                it.dependsOn.forEachIndexed { idx, value -> avsAndDependsOn[idx + 1] = avToInt.getInt(value.key) }
+                it.key to avsAndDependsOn
             }
 
-        val appVersions = avDict.keys.associateTo(MutableMap()) { k -> avToInt.getInt(k) to k.appVersions() }
+        val appVersions = avDict.values.associateByTo(FMutableMap()) { k -> avToInt.getInt(k.key) }
 
-        return checksums to appVersions
+        return Triple(checksums, appVersions, avToInt)
     }
 
     private fun serializeAsJson(
         checksums: Checksums,
         appVersions: AppVersions,
+        appVersionsReversed: AppVersionsReversed,
         pathToJson: String
     ) {
-        val map = MutableMap<String, Any>()
+        val map = FMutableMap<String, Any>()
         for ((k, v) in checksums) {
             map[k.toString()] = v
         }
         for ((k, v) in appVersions) {
-            map[k.toString()] = v
+            map[k.toString()] = mapOf(
+                "av" to v.key.appVersions(),
+                "impl" to v.implies.map { appVersionsReversed.getInt(it.key) },
+                "total" to v.checksums.size.coerceAtMost(maxChecksums)
+            )
         }
         OBJECT_MAPPER.writeValue(
             File(pathToJson),

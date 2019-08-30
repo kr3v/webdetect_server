@@ -1,6 +1,5 @@
 package com.cloudlinux.webdetect
 
-import com.cloudlinux.webdetect.bloomfilter.murmurHash
 import java.nio.ByteBuffer
 import java.util.Arrays
 
@@ -9,7 +8,7 @@ fun hexDigit(c: Char) = when (c) {
     else -> c.toInt() - 'a'.toInt() + 10
 }
 
-fun String.asChecksumLong(): ChecksumLong {
+fun String.parseChecksum(): LongArray {
     if (this.length != 64) throw Exception(this)
     val ll = LongArray(4)
     for (i in 0..3) {
@@ -19,23 +18,26 @@ fun String.asChecksumLong(): ChecksumLong {
         }
         ll[i] = l
     }
-    return ChecksumLong(ll)
+    return ll
 }
 
 data class ChecksumLong(
     val ll: LongArray,
+    val path: String?,
     val hash: Int = Arrays.hashCode(ll)
 ) : Comparable<ChecksumLong> {
 
-    val bloomFilterHash1: Long
-    val bloomFilterHash2: Long
-    val byteArray: ByteArray
+    val bloomFilterHash1: Long get() = TODO()
+    val bloomFilterHash2: Long get() = TODO()
+    val byteArray: ByteArray get() = TODO()
+
+    constructor(s: String, path: String? = null) : this(s.parseChecksum(), path)
 
     init {
-        val (h1, h2) = murmurHash(this.asByteArray())
-        bloomFilterHash1 = h1
-        bloomFilterHash2 = h2
-        byteArray = asByteArray()
+//        val (h1, h2) = murmurHash(this.asByteArray())
+//        bloomFilterHash1 = h1
+//        bloomFilterHash2 = h2
+//        byteArray = asByteArray()
     }
 
     override fun compareTo(other: ChecksumLong): Int {

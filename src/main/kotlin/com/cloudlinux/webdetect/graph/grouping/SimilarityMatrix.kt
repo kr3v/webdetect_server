@@ -2,6 +2,7 @@ package com.cloudlinux.webdetect.graph.grouping
 
 import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
+import com.cloudlinux.webdetect.util.countIntersects
 
 typealias Matrix = Array<IntArray>
 
@@ -16,7 +17,7 @@ private fun similarityMatrixImpl(list: List<AppVersionGraphEntry>): Matrix {
     val d = Array(list.size) { IntArray(list.size) }
     for ((i, vi) in list.withIndex()) {
         for ((j, vj) in list.withIndex()) {
-            d[i][j] = (vi.checksums intersect vj.checksums).size
+            d[i][j] = countIntersects(vi.checksums, vj.checksums)
         }
     }
     return d

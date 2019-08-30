@@ -3,33 +3,26 @@ package com.cloudlinux.webdetect.graph
 import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.graph.grouping.Matrix
 import java.io.PrintWriter
-import kotlin.math.min
 
-fun statsBfs(
-    r: MutableMap<AppVersion, AppVersionGraphEntry>,
+fun statsGraph(
+    definedAvDict: Map<AppVersion, AppVersionGraphEntry>,
     avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
-    max: Int
+    max: Int,
+    run: Int
 ) {
-    println("Result: ${r.size}/${avDict.size}")
-    println("Stats:")
-    r.values
-        .groupBy { min(max, it.checksums.size) }
+    println("Result: ${definedAvDict.size}/${avDict.size}")
+    println("Stats $run:")
+    definedAvDict.values
+        .groupBy {
+            val exclusive = it.checksums.size
+            val released = it.released.size
+            exclusive.coerceAtMost(5) to (exclusive + released).coerceAtMost(5)
+        }
         .mapValues { (_, v) -> v.size }
-        .toSortedMap()
-        .forEach { (t, u) -> println("$t -> $u") }
-}
-
-fun statsPq(
-    avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
-    max: Int
-) {
-    println("Result: ${avDict.count { (_, v) -> v.checksums.size > 0 }}/${avDict.size}")
-    println("Stats:")
-    avDict.values
-        .groupBy { min(max, it.checksums.size) }
-        .mapValues { (_, v) -> v.size }
-        .toSortedMap()
-        .forEach { (t, u) -> println("$t -> $u") }
+        .toSortedMap(compareBy({ it.first }, { it.second }))
+        .forEach { (k, u) -> println("$k -> $u") }
+    println(avDict.values.sumBy { it.checksums.size.coerceAtMost(max) }.toDouble() / avDict.size.toDouble())
+    println()
 }
 
 fun writeUndetected(
@@ -38,7 +31,7 @@ fun writeUndetected(
     writer: PrintWriter = PrintWriter(System.out)
 ) {
     if (undetected.isEmpty()) return
-    writer.println("Not defined app versions: ${undetected.size}")
+    writer.println("Not defined app-versions: ${undetected.size}")
     undetected
         .sortedBy(AppVersion::toString)
         .forEach {

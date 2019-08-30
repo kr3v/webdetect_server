@@ -4,48 +4,47 @@ import com.cloudlinux.webdetect.bloomfilter.BloomFilterSolutionParameters
 import com.cloudlinux.webdetect.bloomfilter.bloomFilterBasedSolution
 import com.cloudlinux.webdetect.graph.GraphBasedSolutionSerializer
 import com.cloudlinux.webdetect.graph.graphBasedSolution
-import com.cloudlinux.webdetect.graph.statsBfs
+import com.cloudlinux.webdetect.graph.statsGraph
 import com.cloudlinux.webdetect.graph.writeUndetected
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintWriter
+import java.time.ZonedDateTime
 import java.util.Optional
 
 val OBJECT_MAPPER = jacksonObjectMapper()
 
 fun main(args: Array<String>) {
-    if (args.size < 2) throw Exception("Usage: webdetect_gen database output")
+    if (args.size < 2) throw Exception("Usage: webdetect_gen <csv path> <output path>")
     val `in`: String = args[0]
     val out: String = args[1]
     val detect = args.drop(2)
 
-    val pooledCtx = DataContext()
-    read(`in`, "\t") { (app, version, hash) -> pooledCtx.doPooling(app, version, hash) }
-    pooledCtx.pool.cleanup()
+    val webdetectCtx = buildContextFromCsv(`in`)
 
-    for (d in detect) {
-        File(d)
-            .readLines()
-            .distinct()
-            .filterNot {
-                pooledCtx.checksumToAppVersions[it.asChecksumLong()]
-                    ?.any { it.appVersions().any { it.app == "wordpress-cores" } } ?: true
-            }
-            .forEach { println(it to pooledCtx.checksumToAppVersions[it.asChecksumLong()]?.size) }
-    }
-
-    val max = 5
-    val min = 1
     graphSolution(
-        pooledCtx,
+        webdetectCtx,
         out
     )
 }
 
+fun buildContextFromCsv(`in`: String): WebdetectContext {
+    val webdetectCtx = WebdetectContext()
+    println("${ZonedDateTime.now()}: $`in` processing started")
+    read(
+        path = `in`,
+        separator = "\t",
+        withoutPathHandler = { (app, version, hash) -> webdetectCtx.doPooling(app, version, hash) },
+        withPathHandler = { (app, version, hash, _) -> webdetectCtx.doPooling(app, version, hash, null) }
+    )
+    println("${ZonedDateTime.now()}: $`in` processing done")
+    webdetectCtx.pool.cleanup()
+    return webdetectCtx
+}
+
 private fun bloomFilterSolution(
-    pooledCtx: DataContext,
+    webdetectCtx: WebdetectContext,
     detect: Optional<String>
 ) {
     bloomFilterBasedSolution(
@@ -55,37 +54,28 @@ private fun bloomFilterSolution(
             matchingThreshold = 0.5,
             bloomFilterMinimumSize = 100
         ),
-        pooledCtx,
+        webdetectCtx,
         File(detect.get()).readLines()
     )
 }
 
-private fun graphSolution(pooledCtx: DataContext, out: String) {
+private const val undetectedOutputPath = "undetected"
+private const val matricesOutputPath = "matrices"
+
+private fun graphSolution(webdetectCtx: WebdetectContext, out: String) {
     val max = 5
     val min = 1
-    val (avDict, _, definedAvDict, undetected) = graphBasedSolution(
-        pooledCtx,
-        max downTo min
-    )
-    statsBfs(definedAvDict, avDict, max)
+    val (avDict, _, definedAvDict, undetected) = graphBasedSolution(webdetectCtx)
+
+    println("${ZonedDateTime.now()}: printing stats")
+    statsGraph(definedAvDict, avDict, max, -1)
+
+    println("${ZonedDateTime.now()}: serializing")
     GraphBasedSolutionSerializer(avDict, definedAvDict, max).serialize(
         Optional.of("$out.json"),
         Optional.empty()
     )
-    writeUndetected(undetected.keys, avDict, PrintWriter(FileOutputStream(File("undetected"))))
-}
 
-private fun processByDb(pathToShaList: String, pathToDb: String) = processByDb(
-    pathToShaList,
-    OBJECT_MAPPER.readValue<Map<String, Map<String, Any>>>(File(pathToDb))
-)
-
-private fun processByDb(pathToShaList: String, definedAv: Map<String, Any>) {
-    println("Additional arg passed, checking $pathToShaList...")
-    val lines = File(pathToShaList)
-    lines.forEachLine { line ->
-        if (line in definedAv) {
-            println(definedAv[line])
-        }
-    }
+    println("${ZonedDateTime.now()}: finding undetected")
+    writeUndetected(undetected.keys, avDict, PrintWriter(FileOutputStream(File(undetectedOutputPath))))
 }

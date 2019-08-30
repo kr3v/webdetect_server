@@ -32,7 +32,12 @@ tasks.test {
     testLogging {
         events("passed", "skipped", "failed")
     }
+    sourceSets["test"].java {
+        srcDir("src/test/testUnit")
+        srcDir("src/test/testIntegration")
+    }
 }
+
 
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "1.8"

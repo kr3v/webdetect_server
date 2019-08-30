@@ -1,8 +1,8 @@
 package com.cloudlinux.webdetect.graph.bfs
 
 import com.cloudlinux.webdetect.AppVersion
-import com.cloudlinux.webdetect.MutableLinkedSet
-import com.cloudlinux.webdetect.MutableMap
+import com.cloudlinux.webdetect.FMutableLinkedSet
+import com.cloudlinux.webdetect.FMutableMap
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.graph.ChecksumGraphEntry
 import com.cloudlinux.webdetect.graph.HasIntProperties
@@ -13,10 +13,11 @@ var HasIntProperties.exclusiveChecksums
         properties[0] = value
     }
 
+@Deprecated("does not support [AVGE.released]")
 class BfsBasedSolution(
-    private val avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
+    private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry>,
     private val sufficientChecksumsRange: IntProgression,
-    private val bfsQueue: MutableLinkedSet<AppVersionGraphEntry> = MutableLinkedSet(),
+    private val bfsQueue: FMutableLinkedSet<AppVersionGraphEntry> = FMutableLinkedSet(),
     private var sufficientChecksums: Int = sufficientChecksumsRange.first
 ) {
 
@@ -56,8 +57,8 @@ class BfsBasedSolution(
         }
     }
 
-    fun process(): MutableMap<AppVersion, AppVersionGraphEntry> {
-        val result = MutableMap<AppVersion, AppVersionGraphEntry>()
+    fun process(): FMutableMap<AppVersion, AppVersionGraphEntry> {
+        val result = FMutableMap<AppVersion, AppVersionGraphEntry>()
         for (sufficientChecksums in sufficientChecksumsRange) {
             this.sufficientChecksums = sufficientChecksums
             avDict.values.filterTo(bfsQueue, ::isDefined)

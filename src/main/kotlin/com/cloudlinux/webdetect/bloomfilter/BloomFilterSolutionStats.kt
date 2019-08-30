@@ -3,7 +3,6 @@ package com.cloudlinux.webdetect.bloomfilter
 import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.Checksum
 import com.cloudlinux.webdetect.ChecksumLong
-import com.cloudlinux.webdetect.asChecksumLong
 import orestes.bloomfilter.HashProvider
 import java.io.PrintWriter
 import java.util.concurrent.ConcurrentHashMap
@@ -14,7 +13,7 @@ typealias MatchingResult = ConcurrentHashMap<Pair<AppVersion, KMutableSet<Checks
 fun doMatching(
     toBeChecked: List<String>,
     twoLevelBf: HierarchicalBloomFilter<Pair<List<String>, HierarchicalBloomFilter<List<String>>>>
-): Pair<MatchingResult, MatchingResult> = doMatching(toBeChecked.map(String::asChecksumLong), twoLevelBf)
+): Pair<MatchingResult, MatchingResult> = doMatching(toBeChecked.map { ChecksumLong(it) }, twoLevelBf)
 
 fun murmurHash(cslBytes: ByteArray): Pair<Long, Long> {
     val hash1 = HashProvider.murmur3(0, cslBytes)

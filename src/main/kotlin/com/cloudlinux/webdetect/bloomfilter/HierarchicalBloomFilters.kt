@@ -2,7 +2,7 @@ package com.cloudlinux.webdetect.bloomfilter
 
 import com.cloudlinux.webdetect.Checksum
 import com.cloudlinux.webdetect.ChecksumLong
-import com.cloudlinux.webdetect.MutableSet
+import com.cloudlinux.webdetect.FMutableSet
 import com.cloudlinux.webdetect.util.toList
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 
@@ -28,7 +28,7 @@ class HierarchicalBloomFilterBuilder(
     private fun <V> mergeNodeChunk(list: List<HierarchicalBloomFilter.Node<V>>) = when (list.size) {
         1 -> HierarchicalBloomFilter.Node.Intermediate(list.single().filter, list)
         else -> {
-            val checksums = MutableSet<Checksum>(list.sumBy { it.filter.items.size }, 1f)
+            val checksums = FMutableSet<Checksum>(list.sumBy { it.filter.items.size }, 0.5f)
             list.forEach { checksums.addAll(it.filter.items) }
             HierarchicalBloomFilter.Node.Intermediate(
                 bloomFilter(checksums, solutionContext),

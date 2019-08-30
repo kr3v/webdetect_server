@@ -2,8 +2,8 @@ package com.cloudlinux.webdetect.bloomfilter
 
 import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.ChecksumLong
-import com.cloudlinux.webdetect.MutableMap
-import com.cloudlinux.webdetect.MutableSet
+import com.cloudlinux.webdetect.FMutableMap
+import com.cloudlinux.webdetect.FMutableSet
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.util.toList
 import java.util.concurrent.ConcurrentHashMap
@@ -12,7 +12,7 @@ import kotlin.math.roundToInt
 
 /// defines best params for [BloomFilterSolutionParameters] via brute-force
 fun find(
-    definedAvDict: MutableMap<AppVersion, AppVersionGraphEntry>,
+    definedAvDict: FMutableMap<AppVersion, AppVersionGraphEntry>,
     detect: List<ChecksumLong>
 ) {
     definedAvDict.forEach { (_, v) ->
@@ -21,7 +21,7 @@ fun find(
             .take(5))
     }
 
-    val defined = definedAvDict.values.map { it.checksums.mapTo(MutableSet()) { it.key } to it.key }
+    val defined = definedAvDict.values.map { it.checksums.mapTo(FMutableSet()) { it.key } to it.key }
 
     definedAvDict.clear()
     definedAvDict.trim()

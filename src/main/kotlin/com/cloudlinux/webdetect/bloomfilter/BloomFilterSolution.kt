@@ -1,6 +1,6 @@
 package com.cloudlinux.webdetect.bloomfilter
 
-import com.cloudlinux.webdetect.DataContext
+import com.cloudlinux.webdetect.WebdetectContext
 import java.io.PrintWriter
 
 data class BloomFilterSolutionParameters(
@@ -12,7 +12,7 @@ data class BloomFilterSolutionParameters(
 
 fun bloomFilterBasedSolution(
     solutionContext: BloomFilterSolutionParameters,
-    dataContext: DataContext,
+    dataContext: WebdetectContext,
     toBeDetected: List<String>
 ) {
     val filter = buildHierarchicalBloomFilter(solutionContext, dataContext)
