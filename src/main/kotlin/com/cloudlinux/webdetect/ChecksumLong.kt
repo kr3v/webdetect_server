@@ -1,5 +1,7 @@
 package com.cloudlinux.webdetect
 
+import com.cloudlinux.webdetect.graph.ChecksumKey
+import com.fasterxml.jackson.annotation.JsonIgnore
 import java.nio.ByteBuffer
 import java.util.Arrays
 
@@ -25,20 +27,11 @@ data class ChecksumLong(
     val ll: LongArray,
     val path: String?,
     val hash: Int = Arrays.hashCode(ll)
-) : Comparable<ChecksumLong> {
+) : ChecksumKey<ChecksumLong> {
 
-    val bloomFilterHash1: Long get() = TODO()
-    val bloomFilterHash2: Long get() = TODO()
-    val byteArray: ByteArray get() = TODO()
+    val byteArray: ByteArray get() = asByteArray()
 
     constructor(s: String, path: String? = null) : this(s.parseChecksum(), path)
-
-    init {
-//        val (h1, h2) = murmurHash(this.asByteArray())
-//        bloomFilterHash1 = h1
-//        bloomFilterHash2 = h2
-//        byteArray = asByteArray()
-    }
 
     override fun compareTo(other: ChecksumLong): Int {
         for (idx in ll.indices) {
@@ -52,7 +45,7 @@ data class ChecksumLong(
     override fun hashCode() = hash
     override fun toString(): String = asHexString()
 
-    private fun asByteArray(): ByteArray {
+    override fun asByteArray(): ByteArray {
         val result = ByteArray(32)
         val bb = ByteBuffer.wrap(result)
         ll.forEach { bb.putLong(it) }
@@ -60,4 +53,17 @@ data class ChecksumLong(
     }
 
     private fun asHexString() = ll.joinToString(separator = "") { String.format("%016x", it) }
+
+    @get:JsonIgnore
+    val bloomFilterHash1: Long
+        get() = TODO()
+    @get:JsonIgnore
+    val bloomFilterHash2: Long
+        get() = TODO()
+//    init {
+//        val (h1, h2) = murmurHash(this.asByteArray())
+//        bloomFilterHash1 = h1
+//        bloomFilterHash2 = h2
+//        byteArray = asByteArray()
+//    }
 }

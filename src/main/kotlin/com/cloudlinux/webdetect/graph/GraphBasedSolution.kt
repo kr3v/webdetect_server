@@ -1,7 +1,6 @@
 package com.cloudlinux.webdetect.graph
 
 import com.cloudlinux.webdetect.AppVersion
-import com.cloudlinux.webdetect.Checksum
 import com.cloudlinux.webdetect.FMutableMap
 import com.cloudlinux.webdetect.FMutableSet
 import com.cloudlinux.webdetect.WebdetectContext
@@ -12,11 +11,11 @@ import com.cloudlinux.webdetect.graph.pq.PriorityQueue
 import com.cloudlinux.webdetect.graph.pq.PriorityQueueBasedSolution
 import java.time.ZonedDateTime
 
-data class GraphBasedSolutionResult(
-    val avDict: FMutableMap<AppVersion, AppVersionGraphEntry>,
-    val csDict: FMutableMap<Checksum, ChecksumGraphEntry>,
-    val definedAvDict: Map<AppVersion, AppVersionGraphEntry>,
-    val undefinedAvDict: Map<AppVersion, AppVersionGraphEntry>
+data class GraphBasedSolutionResult<C : ChecksumKey<C>>(
+    val avDict: FMutableMap<AppVersion, AppVersionGraphEntry<C>>,
+    val csDict: FMutableMap<C, ChecksumGraphEntry<C>>,
+    val definedAvDict: Map<AppVersion, AppVersionGraphEntry<C>>,
+    val undefinedAvDict: Map<AppVersion, AppVersionGraphEntry<C>>
 )
 
 /**
@@ -70,7 +69,7 @@ data class GraphBasedSolutionResult(
  * @client
  * todo
  */
-fun graphBasedSolution(webdetectCtx: WebdetectContext): GraphBasedSolutionResult {
+fun <C : ChecksumKey<C>> graphBasedSolution(webdetectCtx: WebdetectContext<C>): GraphBasedSolutionResult<C> {
     println("${ZonedDateTime.now()}: creating graph started")
     val (avDict, csDict) = createGraph(
         // filtering significantly speeds-up PQ performance by excluding checksums that are shared between big amount of app-versions (empty file, for example)
@@ -88,7 +87,7 @@ fun graphBasedSolution(webdetectCtx: WebdetectContext): GraphBasedSolutionResult
     val definedAvDict = avDict.filterValues { it.checksums.size > 0 }
 
     val undetected = avDict - definedAvDict.keys
-    return GraphBasedSolutionResult(
+    return GraphBasedSolutionResult<C>(
         avDict,
         csDict,
         definedAvDict,

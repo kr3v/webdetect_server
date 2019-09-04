@@ -1,17 +1,13 @@
 package com.cloudlinux.webdetect.util
 
-import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import java.util.stream.Collectors
 import java.util.stream.Stream
 
-fun exactlyOneIntersect(lhs: Set<AppVersionGraphEntry>, rhs: Set<AppVersionGraphEntry>) =
+fun <T> exactlyOneIntersect(lhs: Set<T>, rhs: Set<T>) =
     if (lhs.size > rhs.size) exactlyOneIntersectImpl(rhs, lhs) else exactlyOneIntersectImpl(lhs, rhs)
 
-private fun exactlyOneIntersectImpl(
-    lhs: Set<AppVersionGraphEntry>,
-    rhs: Set<AppVersionGraphEntry>
-): Boolean {
+private fun <T> exactlyOneIntersectImpl(lhs: Set<T>, rhs: Set<T>): Boolean {
     var found = false
     for (l in lhs)
         if (l in rhs)

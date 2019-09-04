@@ -2,6 +2,7 @@ package com.cloudlinux.webdetect
 
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.graph.ChecksumGraphEntry
+import com.cloudlinux.webdetect.graph.ChecksumKey
 import com.cloudlinux.webdetect.graph.GraphBasedSolutionSerializer
 import com.cloudlinux.webdetect.graph.graphBasedSolution
 import com.cloudlinux.webdetect.graph.writeUndetected
@@ -23,7 +24,7 @@ fun main(args: Array<String>) {
         .map { it.fileName to Files.newBufferedReader(it) }
         .toList()
 
-    val webdetectCtx = buildContextFromCsv(`in`)
+    val webdetectCtx = buildContextByCsv(`in`, ChecksumObjects)
     System.gc()
     val (avDict, csDict, definedAvDict, undetected) = graphBasedSolution(webdetectCtx)
 
@@ -44,8 +45,8 @@ fun main(args: Array<String>) {
 
     var misverdict = 0
     detect.forEach { (file, io) ->
-        val used = FMutableSet<ChecksumGraphEntry>()
-        val unused = FMutableSet<ChecksumGraphEntry>()
+        val used = FMutableSet<ChecksumGraphEntry<Checksum>>()
+        val unused = FMutableSet<ChecksumGraphEntry<Checksum>>()
         io.forEachLine { ln ->
             val verdict = ln[17]
             when (val line = ln.drop(18).take(64)) {
@@ -60,27 +61,17 @@ fun main(args: Array<String>) {
             }
         }
 
-        val wc = WebdetectClient(used, checksumsPartitionFilter = 0.5, maxChecksums = maxChecksums)
-        val avUnfiltered = wc.foundAvs
-        val avFilteredByDependsOn = wc.doMatching()
-        val avs = avFilteredByDependsOn
-
-//        val avUnfiltered = used.groupBy { it.appVersions.single() }
-//        val csFilteredByDependsOn = used.filter { it.dependsOn.none(avUnfiltered::containsKey) }
-//        val avFilteredByDependsOn = csFilteredByDependsOn.groupBy { it.appVersions.single() }
-//        val avs = avFilteredByDependsOn.filter { (av, cs) -> cs.size.toDouble() / av.checksums.size.coerceAtMost(5) >= 0.5 }
-
-//        val hasNotWordpressCore = avs.flatMap { it.key.key.appVersions() }.none { it.app == "wordpress-cores" }
-//        if (hasNotWordpressCore) return@forEach
+        val wc = WebdetectClient(used, requiredChecksumsCoeff = 0.5, maxChecksums = maxChecksums)
+        val avs = wc.resultAvs
 
 //        val errors = ((used - avs.values.flatten()) + unused)
 //            .filter { it.dependsOn.none(avs::containsKey) && it.appVersions.none(avs::containsKey) }
 //            .sortedBy { it.key.path ?: "<sorry>" }
 
         fun <T> Collection<T>.format() = joinToString(separator = "\n\t", prefix = "\n\t")
-        fun List<ChecksumGraphEntry>.format() = map { k -> k.key.toString() + " -> " + k.key.path }.format()
-        fun Map<AppVersionGraphEntry, List<ChecksumGraphEntry>>.format() = entries
-            .map { (k, v) -> k.key.toString() + ": " + v.size + "/" + k.checksums.size + " : " + v.joinToString(" ") }
+        fun List<ChecksumGraphEntry<Checksum>>.format() = map { k -> k.key.toString() + " -> " + k.key.path }.format()
+        fun Map<AppVersionGraphEntry<Checksum>, List<ChecksumGraphEntry<Checksum>>>.format() = entries
+            .map { (k, v) -> k.key.toString() + ": " + v.size + "/" + k.checksums.size/* + " : " + v.joinToString(" ")*/ }
             .sorted()
             .format()
 
@@ -88,13 +79,14 @@ fun main(args: Array<String>) {
         println("DB: $file")
         val formattedFoundAvs = avs.format()
         println("Found AVs: $formattedFoundAvs")
-        val formattedImpliedAvs = avs.flatMapTo(FMutableSet()) { it.key.implies }.format()
+        val formattedImpliedAvs = wc.impliedAvs.format()
         println("Implied AVs: $formattedImpliedAvs")
-//        val formattedCoeffAvs = (avFilteredByDependsOn - avs.keys).format()
-        val formattedCoeffAvs = (avUnfiltered - avs.keys).format()
+        val potentiallyMissedImpliedAvs = wc.potentiallyMissedImpliedAvs.format()
+        println("Potentially missed implied AVs: $potentiallyMissedImpliedAvs")
+        val formattedFilteredByDependsOn = (wc.validByEnoughChecksums - wc.resultAvs.keys).format()
+        println("Filtered by depends on: $formattedFilteredByDependsOn")
+        val formattedCoeffAvs = (wc.foundAvs - wc.validByEnoughChecksums.keys).format()
         println("Filtered by 0.5-filter: $formattedCoeffAvs")
-//        val formattedFilteredByDependsOn = (avUnfiltered - avFilteredByDependsOn.keys).format()
-//        println("Filtered by depends on: $formattedFilteredByDependsOn")
 //        val formattedErrors = errors.format()
 //        println("Errors with paths: $formattedErrors")
         println()
@@ -104,25 +96,44 @@ fun main(args: Array<String>) {
     println("Verdict != '1', but found in DB: $misverdict")
 }
 
-class WebdetectClient(
-    found: Collection<ChecksumGraphEntry>,
-    private val checksumsPartitionFilter: Double,
+class WebdetectClient<C : ChecksumKey<C>>(
+    found: Collection<ChecksumGraphEntry<C>>,
+    private val requiredChecksumsCoeff: Double,
     private val maxChecksums: Int
 ) {
     val foundAvs = found.groupByTo(FMutableMap(), { it.appVersions.single() })
-    private val memoizedIsValidMap = Object2BooleanOpenHashMap<AppVersionGraphEntry>()
 
-    fun doMatching(): Map<AppVersionGraphEntry, MutableList<ChecksumGraphEntry>> = foundAvs
-        .asSequence()
-        .filter { (k, _) -> k.memoizedIsValid() }
-        .filter { (k, v) -> v.size.toDouble() / k.checksums.size.coerceAtMost(maxChecksums) >= checksumsPartitionFilter }
-        .associate { (k, v) -> k to v }
+    val validByEnoughChecksums by lazy { foundAvs.filter { (k, v) -> k.hasEnoughMatchedChecksums(v) } }
+    val resultAvs by lazy { validByEnoughChecksums.filter { (k, _) -> k.memoizedIsValidByDependsOn() } }
 
-    private fun AppVersionGraphEntry.memoizedIsValid(): Boolean =
-        if (this in memoizedIsValidMap) memoizedIsValidMap.getBoolean(this)
-        else isValid().also { memoizedIsValidMap[this] = it }
+    val impliedAvs by lazy {
+        resultAvs.keys
+            .flatMapTo(FMutableSet()) { it.implies }
+            .filter { it in foundAvs }
+            .filterNot { it.memoizedIsValidByDependsOn() }
+            .filter { it.hasEnoughMatchedChecksums(foundAvs.getValue(it)) }
+            .associateWith(foundAvs::getValue)
+    }
 
-    private fun AppVersionGraphEntry.isValid() =
-        this in foundAvs && foundAvs[this]!!.any { cs -> cs.dependsOn.none { doAv -> doAv.memoizedIsValid() } }
+    val potentiallyMissedImpliedAvs by lazy {
+        foundAvs.keys
+            .filter {
+                it in foundAvs && it !in impliedAvs && it !in resultAvs &&
+                    !it.memoizedIsValidByDependsOn() && it.hasEnoughMatchedChecksums(foundAvs.getValue(it))
+            }
+            .associateWith(foundAvs::getValue)
+    }
+
+    private fun AppVersionGraphEntry<C>.hasEnoughMatchedChecksums(matchedChecksums: List<ChecksumGraphEntry<C>>) =
+        matchedChecksums.size.toDouble() / checksums.size.coerceAtMost(maxChecksums) >= requiredChecksumsCoeff
+
+    private val memoizedIsValidMap = Object2BooleanOpenHashMap<AppVersionGraphEntry<C>>()
+    private fun AppVersionGraphEntry<C>.memoizedIsValidByDependsOn(): Boolean = when (this) {
+        in memoizedIsValidMap -> memoizedIsValidMap.getBoolean(this)
+        !in foundAvs -> false
+        else -> isValidByDependsOn().also { memoizedIsValidMap[this] = it }
+    }
+
+    private fun AppVersionGraphEntry<C>.isValidByDependsOn() =
+        foundAvs[this]?.any { cs -> cs.dependsOn.none { doAv -> doAv.memoizedIsValidByDependsOn() } } ?: false
 }
-

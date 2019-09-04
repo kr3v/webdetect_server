@@ -2,18 +2,20 @@ package com.cloudlinux.webdetect
 
 import java.io.File
 
+interface Splitter {
+    fun split(values: List<String>): Pair<List<String>, List<String>>
+    fun isValid(values: List<String>): Boolean
+}
+
 inline fun read(
     path: String,
     separator: String,
-    crossinline withoutPathHandler: (List<String>) -> Unit,
-    crossinline withPathHandler: (List<String>) -> Unit
+    splitter: Splitter,
+    crossinline rowsHandler: (av: List<String>, cs: List<String>) -> Unit
 ) {
     File(path).forEachLine { line ->
-        val row = line.split(separator).dropLastWhile(String::isBlank)
-        when {
-            row.size == 3 -> withoutPathHandler(row)
-            row.size == 4 -> withPathHandler(row)
-            else -> throw Exception("Unknown row format: ${row.size} -> $row")
-        }
+        val items = line.split(separator).dropLastWhile(String::isBlank)
+        val (av, cs) = splitter.split(items)
+        rowsHandler(av, cs)
     }
 }

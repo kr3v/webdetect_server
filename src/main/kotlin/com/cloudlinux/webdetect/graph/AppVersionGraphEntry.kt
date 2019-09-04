@@ -11,14 +11,14 @@ private val EMPTY_INT_ARRAY = IntArray(0)
  * @property implies all such app-versions, which checksums are subset of [checksums]
  * @property properties task-specific array of dynamic integer properties; this is expected to simplify caching of values without need to add new field
  */
-class AppVersionGraphEntry(
+class AppVersionGraphEntry<C : ChecksumKey<C>>(
     val key: AppVersion,
-    val checksums: FMutableSet<ChecksumGraphEntry>,
-    val released: FMutableSet<ChecksumGraphEntry> = FMutableSet(checksums.size, 0.5f),
-    val implies: FMutableSet<AppVersionGraphEntry> = FMutableSet(),
+    val checksums: FMutableSet<ChecksumGraphEntry<C>>,
+    val released: FMutableSet<ChecksumGraphEntry<C>> = FMutableSet(checksums.size, 0.5f),
+    val implies: FMutableSet<AppVersionGraphEntry<C>> = FMutableSet(),
     override var properties: IntArray = EMPTY_INT_ARRAY
 ) : HasIntProperties {
-    override fun equals(other: Any?) = this === other || other is AppVersionGraphEntry && key == other.key
+    override fun equals(other: Any?) = this === other || other is AppVersionGraphEntry<*> && key == other.key
     override fun hashCode(): Int = key.hashCode()
     override fun toString() = key.toString()
 }

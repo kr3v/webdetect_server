@@ -1,24 +1,26 @@
 package com.cloudlinux.webdetect.graph
 
 import com.cloudlinux.webdetect.AppVersion
-import com.cloudlinux.webdetect.Checksum
 import com.cloudlinux.webdetect.FMutableMap
 import com.cloudlinux.webdetect.OBJECT_MAPPER
 import com.cloudlinux.webdetect.util.asByteArray
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import org.fusesource.leveldbjni.JniDBFactory
 import org.iq80.leveldb.Options
 import java.io.File
 import java.util.Optional
-import java.util.concurrent.atomic.AtomicInteger
 
-private typealias Checksums = FMutableMap<Checksum, IntArray>
-private typealias AppVersions = FMutableMap<Int, AppVersionGraphEntry>
-private typealias AppVersionsReversed = Object2IntOpenHashMap<AppVersion>
+private typealias Checksums<C> = FMutableMap<C, IntArray>
+private typealias AppVersions<C> = FMutableMap<Int, AppVersionGraphEntry<C>>
 
-class GraphBasedSolutionSerializer(
-    private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry>,
-    private val definedAvDict: Map<AppVersion, AppVersionGraphEntry>,
+var HasIntProperties.intIndex
+    get() = properties[0]
+    set(value) {
+        properties[0] = value
+    }
+
+class GraphBasedSolutionSerializer<C : ChecksumKey<C>>(
+    private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry<C>>,
+    private val definedAvDict: Map<AppVersion, AppVersionGraphEntry<C>>,
     private val maxChecksums: Int
 ) {
     fun serialize(
@@ -26,19 +28,15 @@ class GraphBasedSolutionSerializer(
         levelDbOut: Optional<String> = Optional.empty()
     ) {
         if (!jsonOut.isPresent && !levelDbOut.isPresent) return
-        val (checksums, appVersions, avR) = prepareToSerialize()
-        jsonOut.ifPresent { serializeAsJson(checksums, appVersions, avR, it) }
+        val (checksums, appVersions) = prepareToSerialize()
+        jsonOut.ifPresent { serializeAsJson(checksums, appVersions, it) }
         levelDbOut.ifPresent { serializeAsLevelDb(checksums, appVersions, it) }
-        checksums.clear()
-        checksums.trim()
-        appVersions.clear()
-        appVersions.trim()
     }
 
-    private fun prepareToSerialize(): Triple<Checksums, AppVersions, AppVersionsReversed> {
-        val idx = AtomicInteger()
-        val avToInt = avDict.mapValuesTo(Object2IntOpenHashMap()) { idx.getAndIncrement() }
-        avToInt.defaultReturnValue(-1)
+    private fun prepareToSerialize(): Pair<FMutableMap<C, IntArray>, FMutableMap<Int, AppVersionGraphEntry<C>>> {
+        definedAvDict.values.forEachIndexed { index, appVersionGraphEntry ->
+            appVersionGraphEntry.properties = intArrayOf(index)
+        }
 
         val checksums = definedAvDict
             .values
@@ -49,33 +47,30 @@ class GraphBasedSolutionSerializer(
             }
             .associateTo(FMutableMap()) {
                 val avsAndDependsOn = IntArray(1 + it.dependsOn.size)
-                avsAndDependsOn[0] = avToInt.getInt(it.appVersions.single().key)
-                it.dependsOn.forEachIndexed { idx, value -> avsAndDependsOn[idx + 1] = avToInt.getInt(value.key) }
+                avsAndDependsOn[0] = it.appVersions.single().intIndex
+                it.dependsOn.forEachIndexed { idx, value -> avsAndDependsOn[idx + 1] = value.intIndex }
                 it.key to avsAndDependsOn
             }
 
-        val appVersions = avDict.values.associateByTo(FMutableMap()) { k -> avToInt.getInt(k.key) }
+        val appVersions = avDict.values.associateByTo(FMutableMap(), AppVersionGraphEntry<C>::intIndex)
 
-        return Triple(checksums, appVersions, avToInt)
+        return checksums to appVersions
     }
 
+    private fun AppVersionGraphEntry<C>.prepareAppVersion() = mapOf(
+        "av" to key.appVersions(),
+        "impl" to implies.map { it.intIndex },
+        "total" to checksums.size.coerceAtMost(maxChecksums)
+    )
+
     private fun serializeAsJson(
-        checksums: Checksums,
-        appVersions: AppVersions,
-        appVersionsReversed: AppVersionsReversed,
+        checksums: Checksums<C>,
+        appVersions: AppVersions<C>,
         pathToJson: String
     ) {
         val map = FMutableMap<String, Any>()
-        for ((k, v) in checksums) {
-            map[k.toString()] = v
-        }
-        for ((k, v) in appVersions) {
-            map[k.toString()] = mapOf(
-                "av" to v.key.appVersions(),
-                "impl" to v.implies.map { appVersionsReversed.getInt(it.key) },
-                "total" to v.checksums.size.coerceAtMost(maxChecksums)
-            )
-        }
+        map += checksums.mapKeys { (k, _) -> k.toString() }
+        map += appVersions.map { (k, v) -> k.toString() to v.prepareAppVersion() }
         OBJECT_MAPPER.writeValue(
             File(pathToJson),
             map
@@ -83,8 +78,8 @@ class GraphBasedSolutionSerializer(
     }
 
     private fun serializeAsLevelDb(
-        checksums: Checksums,
-        appVersions: AppVersions,
+        checksums: Checksums<C>,
+        appVersions: AppVersions<C>,
         pathToLevelDb: String
     ) {
         JniDBFactory.factory
@@ -92,10 +87,10 @@ class GraphBasedSolutionSerializer(
             .use { db ->
                 val wb = db.createWriteBatch()
                 for ((k, v) in checksums) {
-                    wb.put(k.byteArray, v.asByteArray())
+                    wb.put(k.asByteArray(), v.asByteArray())
                 }
                 for ((k, v) in appVersions) {
-                    wb.put(k.asByteArray(), OBJECT_MAPPER.writeValueAsBytes(v))
+                    wb.put(k.asByteArray(), OBJECT_MAPPER.writeValueAsBytes(v.prepareAppVersion()))
                 }
                 db.write(wb)
             }

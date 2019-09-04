@@ -5,6 +5,7 @@ import com.cloudlinux.webdetect.FMutableLinkedSet
 import com.cloudlinux.webdetect.FMutableMap
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.graph.ChecksumGraphEntry
+import com.cloudlinux.webdetect.graph.ChecksumKey
 import com.cloudlinux.webdetect.graph.HasIntProperties
 
 var HasIntProperties.exclusiveChecksums
@@ -14,10 +15,10 @@ var HasIntProperties.exclusiveChecksums
     }
 
 @Deprecated("does not support [AVGE.released]")
-class BfsBasedSolution(
-    private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry>,
+class BfsBasedSolution<C : ChecksumKey<C>>(
+    private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry<C>>,
     private val sufficientChecksumsRange: IntProgression,
-    private val bfsQueue: FMutableLinkedSet<AppVersionGraphEntry> = FMutableLinkedSet(),
+    private val bfsQueue: FMutableLinkedSet<AppVersionGraphEntry<C>> = FMutableLinkedSet(),
     private var sufficientChecksums: Int = sufficientChecksumsRange.first
 ) {
 
@@ -27,9 +28,9 @@ class BfsBasedSolution(
         }
     }
 
-    private fun isDefined(av: AppVersionGraphEntry) = av.exclusiveChecksums >= sufficientChecksums
+    private fun isDefined(av: AppVersionGraphEntry<C>) = av.exclusiveChecksums >= sufficientChecksums
 
-    private fun removeNonExclusiveChecksums(av: AppVersionGraphEntry) {
+    private fun removeNonExclusiveChecksums(av: AppVersionGraphEntry<C>) {
         val iterator = av.checksums.iterator()
         while (iterator.hasNext()) {
             val checksum = iterator.next()
@@ -42,7 +43,7 @@ class BfsBasedSolution(
         }
     }
 
-    private fun updateQueue(checksum: ChecksumGraphEntry) {
+    private fun updateQueue(checksum: ChecksumGraphEntry<C>) {
         for (adjacentAppVersion in checksum.appVersions) {
             if (checksum.appVersions.size == 1) {
                 adjacentAppVersion.exclusiveChecksums++
@@ -57,8 +58,8 @@ class BfsBasedSolution(
         }
     }
 
-    fun process(): FMutableMap<AppVersion, AppVersionGraphEntry> {
-        val result = FMutableMap<AppVersion, AppVersionGraphEntry>()
+    fun process(): FMutableMap<AppVersion, AppVersionGraphEntry<C>> {
+        val result = FMutableMap<AppVersion, AppVersionGraphEntry<C>>()
         for (sufficientChecksums in sufficientChecksumsRange) {
             this.sufficientChecksums = sufficientChecksums
             avDict.values.filterTo(bfsQueue, ::isDefined)

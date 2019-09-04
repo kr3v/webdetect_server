@@ -11,6 +11,8 @@ sealed class AppVersion {
         val app: String,
         val version: String,
         @field:JsonIgnore
+        val group: String? = null,
+        @field:JsonIgnore
         val both: String = app + version
     ) : AppVersion(), Comparable<Single> {
         override fun apps(): List<String> = listOf(app)

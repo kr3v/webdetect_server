@@ -4,6 +4,7 @@ import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.FMutableMap
 import com.cloudlinux.webdetect.FMutableSet
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
+import com.cloudlinux.webdetect.graph.ChecksumKey
 import java.time.ZonedDateTime
 
 /**
@@ -13,8 +14,8 @@ import java.time.ZonedDateTime
  *
  * Note: should run after [MergeAppVersionsWithSameChecksumsTask].
  */
-class FindAppVersionsInclusionsTask(
-    private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry>
+class FindAppVersionsInclusionsTask<C : ChecksumKey<C>>(
+    private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry<C>>
 ) {
     fun process() {
         println("${ZonedDateTime.now()}: lookup for app-versions inclusions started")
@@ -22,7 +23,7 @@ class FindAppVersionsInclusionsTask(
             val checksums = av.checksums
             if (checksums.size == 0) continue
             val ms =
-                FMutableSet<AppVersionGraphEntry>(checksums.first().appVersions)
+                FMutableSet<AppVersionGraphEntry<C>>(checksums.first().appVersions)
             for (cs in checksums.asSequence().drop(1)) {
                 ms.removeIf { avv -> avv !in cs.appVersions }
             }

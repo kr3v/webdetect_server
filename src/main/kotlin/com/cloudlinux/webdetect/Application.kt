@@ -1,7 +1,6 @@
 package com.cloudlinux.webdetect
 
-import com.cloudlinux.webdetect.bloomfilter.BloomFilterSolutionParameters
-import com.cloudlinux.webdetect.bloomfilter.bloomFilterBasedSolution
+import com.cloudlinux.webdetect.graph.ChecksumKey
 import com.cloudlinux.webdetect.graph.GraphBasedSolutionSerializer
 import com.cloudlinux.webdetect.graph.graphBasedSolution
 import com.cloudlinux.webdetect.graph.statsGraph
@@ -21,7 +20,8 @@ fun main(args: Array<String>) {
     val out: String = args[1]
     val detect = args.drop(2)
 
-    val webdetectCtx = buildContextFromCsv(`in`)
+    val webdetectCtx = buildContextByCsv(`in`, MethodNameObjects)
+    webdetectCtx.pool.cleanup()
 
     graphSolution(
         webdetectCtx,
@@ -29,41 +29,11 @@ fun main(args: Array<String>) {
     )
 }
 
-fun buildContextFromCsv(`in`: String): WebdetectContext {
-    val webdetectCtx = WebdetectContext()
-    println("${ZonedDateTime.now()}: $`in` processing started")
-    read(
-        path = `in`,
-        separator = "\t",
-        withoutPathHandler = { (app, version, hash) -> webdetectCtx.doPooling(app, version, hash) },
-        withPathHandler = { (app, version, hash, _) -> webdetectCtx.doPooling(app, version, hash, null) }
-    )
-    println("${ZonedDateTime.now()}: $`in` processing done")
-    webdetectCtx.pool.cleanup()
-    return webdetectCtx
-}
-
-private fun bloomFilterSolution(
-    webdetectCtx: WebdetectContext,
-    detect: Optional<String>
-) {
-    bloomFilterBasedSolution(
-        BloomFilterSolutionParameters(
-            bloomFilterFalsePositiveProbability = 0.01,
-            leafsPerNode = 2,
-            matchingThreshold = 0.5,
-            bloomFilterMinimumSize = 100
-        ),
-        webdetectCtx,
-        File(detect.get()).readLines()
-    )
-}
-
 private const val undetectedOutputPath = "undetected"
 private const val matricesOutputPath = "matrices"
 
-private fun graphSolution(webdetectCtx: WebdetectContext, out: String) {
-    val max = 5
+private fun <C : ChecksumKey<C>> graphSolution(webdetectCtx: WebdetectContext<C>, out: String) {
+    val max = 100
     val min = 1
     val (avDict, _, definedAvDict, undetected) = graphBasedSolution(webdetectCtx)
 
@@ -73,7 +43,7 @@ private fun graphSolution(webdetectCtx: WebdetectContext, out: String) {
     println("${ZonedDateTime.now()}: serializing")
     GraphBasedSolutionSerializer(avDict, definedAvDict, max).serialize(
         Optional.of("$out.json"),
-        Optional.empty()
+        Optional.of("$out.ldb")
     )
 
     println("${ZonedDateTime.now()}: finding undetected")

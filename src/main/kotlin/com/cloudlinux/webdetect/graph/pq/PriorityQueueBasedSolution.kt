@@ -3,6 +3,7 @@ package com.cloudlinux.webdetect.graph.pq
 import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.FMutableMap
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
+import com.cloudlinux.webdetect.graph.ChecksumKey
 import com.cloudlinux.webdetect.graph.HasIntProperties
 import java.time.ZonedDateTime
 import java.util.Comparator
@@ -19,26 +20,26 @@ var HasIntProperties.pqIndex
         properties[1] = value
     }
 
-class PriorityQueueBasedSolution private constructor(
-    private val queue: PriorityQueue<AppVersionGraphEntry>
+class PriorityQueueBasedSolution<C : ChecksumKey<C>> private constructor(
+    private val queue: PriorityQueue<AppVersionGraphEntry<C>>
 ) {
     companion object {
-        private val cmp = Comparator
-            .comparingInt<AppVersionGraphEntry> { it.exclusiveChecksums }
+        private fun <C : ChecksumKey<C>> cmp() = Comparator
+            .comparingInt<AppVersionGraphEntry<C>> { it.exclusiveChecksums }
             .thenComparingInt { it.checksums.size }
     }
 
-    constructor(avDict: FMutableMap<AppVersion, AppVersionGraphEntry>) : this(
+    constructor(avDict: FMutableMap<AppVersion, AppVersionGraphEntry<C>>) : this(
         PriorityQueue(
             avDict.values.onEach {
                 it.properties = IntArray(2)
                 it.exclusiveChecksums = it.checksums.sumBy { cs -> if (cs.appVersions.size == 1) 1 else 0 }
             },
-            cmp
+            cmp<C>()
         )
     )
 
-    private fun removeNonExclusiveChecksums(av: AppVersionGraphEntry) {
+    private fun removeNonExclusiveChecksums(av: AppVersionGraphEntry<C>) {
         val iterator = av.checksums.iterator()
         while (iterator.hasNext()) {
             val checksum = iterator.next()

@@ -4,9 +4,9 @@ import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.graph.grouping.Matrix
 import java.io.PrintWriter
 
-fun statsGraph(
-    definedAvDict: Map<AppVersion, AppVersionGraphEntry>,
-    avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
+fun <C : ChecksumKey<C>> statsGraph(
+    definedAvDict: Map<AppVersion, AppVersionGraphEntry<C>>,
+    avDict: MutableMap<AppVersion, AppVersionGraphEntry<C>>,
     max: Int,
     run: Int
 ) {
@@ -16,7 +16,7 @@ fun statsGraph(
         .groupBy {
             val exclusive = it.checksums.size
             val released = it.released.size
-            exclusive.coerceAtMost(5) to (exclusive + released).coerceAtMost(5)
+            exclusive.coerceAtMost(max) to (exclusive + released).coerceAtMost(max)
         }
         .mapValues { (_, v) -> v.size }
         .toSortedMap(compareBy({ it.first }, { it.second }))
@@ -25,9 +25,9 @@ fun statsGraph(
     println()
 }
 
-fun writeUndetected(
+fun <C : ChecksumKey<C>> writeUndetected(
     undetected: Collection<AppVersion>,
-    avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
+    avDict: MutableMap<AppVersion, AppVersionGraphEntry<C>>,
     writer: PrintWriter = PrintWriter(System.out)
 ) {
     if (undetected.isEmpty()) return
@@ -41,8 +41,8 @@ fun writeUndetected(
     writer.flush()
 }
 
-fun writeSimilarityMatrices(
-    m: Map<List<String>, Pair<List<AppVersionGraphEntry>, Matrix>>,
+fun <C : ChecksumKey<C>> writeSimilarityMatrices(
+    m: Map<List<String>, Pair<List<AppVersionGraphEntry<C>>, Matrix>>,
     writer: PrintWriter = PrintWriter(System.out)
 ) {
     if (m.isEmpty()) return
@@ -56,8 +56,8 @@ fun writeSimilarityMatrices(
     writer.flush()
 }
 
-private fun writeMatrix(
-    header: List<AppVersionGraphEntry>,
+private fun <C : ChecksumKey<C>> writeMatrix(
+    header: List<AppVersionGraphEntry<C>>,
     matrix: Matrix,
     writer: PrintWriter
 ) {
@@ -67,7 +67,7 @@ private fun writeMatrix(
     val intFormat = paddingFormat + "d"
     val floatFormat = "$paddingFormat.2f"
 
-    fun PrintWriter.printHeaderEntry(it: AppVersionGraphEntry) {
+    fun PrintWriter.printHeaderEntry(it: AppVersionGraphEntry<C>) {
         printf(stringFormat, it.key.versions().toString())
     }
 
