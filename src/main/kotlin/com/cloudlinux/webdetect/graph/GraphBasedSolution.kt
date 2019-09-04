@@ -22,7 +22,7 @@ data class GraphBasedSolutionResult<C : ChecksumKey<C>>(
  * @terminology
  * - file/checksum - used interchangeably;
  * - app-version - tuple of application and version;
- * - [...] represent an array and regex-like 'or' shorthand, if used after symbols (i.e. ch[1-3] == [ch1, ch2, ch3]).
+ * - [...] represent an array and regex-like 'or' shorthand if used after symbols (i.e. ch[1-3] == [ch1, ch2, ch3]).
  *
  * @idea
  * Solution idea is following: let's consider we have N versions of the same application. Let's enumerate them from 1 to N.
@@ -46,7 +46,7 @@ data class GraphBasedSolutionResult<C : ChecksumKey<C>>(
  * - until queue is not empty, pop an entry from it's head - mark popped entry as defined and release 'unused' checksums;
  * - add to end of queue all app-versions that are adjacent to popped entry through checksums).
  *
- * [PriorityQueueBasedSolution] uses [PriorityQueue] instead of BFS queue with specialized comparator to improve accuracy.
+ * [PriorityQueueBasedSolution] uses [PriorityQueue] instead of BFS queue with specific comparator to improve accuracy.
  *
  * @sample
  * Let's consider following example:
@@ -74,6 +74,7 @@ fun <C : ChecksumKey<C>> graphBasedSolution(webdetectCtx: WebdetectContext<C>): 
     val (avDict, csDict) = createGraph(
         // filtering significantly speeds-up PQ performance by excluding checksums that are shared between big amount of app-versions (empty file, for example)
         // Fibonacci heap may do the same without filtering by removing log N at key updating
+        // on other hand, we must exclude checksums representing, for example, empty file to avoid false-positives, so just optimization might not help
         webdetectCtx.checksumToAppVersions.filterValues { it.flatMapTo(FMutableSet(), AppVersion::apps).size <= 50 },
         webdetectCtx.appVersionsToChecksums
     )
@@ -85,6 +86,11 @@ fun <C : ChecksumKey<C>> graphBasedSolution(webdetectCtx: WebdetectContext<C>): 
 
     PriorityQueueBasedSolution(avDict).process()
     val definedAvDict = avDict.filterValues { it.checksums.size > 0 }
+
+    // val maxChecksums = 5
+    // statsGraph(avDict.filterValues { it.checksums.size > 0 }, avDict, maxChecksums, 0)
+    // ChecksumBalancer(avDict, csDict, maxChecksums).process()
+    // statsGraph(avDict.filterValues { it.checksums.size > 0 }, avDict, maxChecksums, 1)
 
     val undetected = avDict - definedAvDict.keys
     return GraphBasedSolutionResult<C>(

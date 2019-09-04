@@ -4,6 +4,7 @@ import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.FMutableMap
 import com.cloudlinux.webdetect.OBJECT_MAPPER
 import com.cloudlinux.webdetect.util.asByteArray
+import com.cloudlinux.webdetect.util.deleteDirectoryRecursively
 import org.fusesource.leveldbjni.JniDBFactory
 import org.iq80.leveldb.Options
 import java.io.File
@@ -82,6 +83,7 @@ class GraphBasedSolutionSerializer<C : ChecksumKey<C>>(
         appVersions: AppVersions<C>,
         pathToLevelDb: String
     ) {
+        deleteDirectoryRecursively(File(pathToLevelDb).toPath())
         JniDBFactory.factory
             .open(File(pathToLevelDb), Options().createIfMissing(true))
             .use { db ->

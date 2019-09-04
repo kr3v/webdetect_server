@@ -18,9 +18,8 @@ fun main(args: Array<String>) {
     if (args.size < 2) throw Exception("Usage: webdetect_gen <csv path> <output path>")
     val `in`: String = args[0]
     val out: String = args[1]
-    val detect = args.drop(2)
 
-    val webdetectCtx = buildContextByCsv(`in`, MethodNameObjects)
+    val webdetectCtx = buildContextByCsv(`in`, ChecksumObjects)
     webdetectCtx.pool.cleanup()
 
     graphSolution(
@@ -33,7 +32,7 @@ private const val undetectedOutputPath = "undetected"
 private const val matricesOutputPath = "matrices"
 
 private fun <C : ChecksumKey<C>> graphSolution(webdetectCtx: WebdetectContext<C>, out: String) {
-    val max = 100
+    val max = 5
     val min = 1
     val (avDict, _, definedAvDict, undetected) = graphBasedSolution(webdetectCtx)
 
