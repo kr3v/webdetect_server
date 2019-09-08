@@ -80,7 +80,7 @@ tasks {
                   -Poutput=<output path>  path where generated DB will be stored (required)
                                             - leveldb DB will be stored in <output path>.ldb directory
                                             - JSON DB will be stored on path <output path>.json
-                  -Pmemory=<integer>{m|g} amount of memory available to JVM; recommended value is 1.5x of CSV  
+                  -Pmemory=<integer>{m|g} amount of memory available to JVM; recommended value is 1.5x of CSV size
 
                 Options to be added later, currently hard-coded in sources:
                   -Ptypes={json|leveldb|json,leveldb}

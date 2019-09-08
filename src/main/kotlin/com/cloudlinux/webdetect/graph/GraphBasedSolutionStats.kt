@@ -13,13 +13,10 @@ fun <C : ChecksumKey<C>> statsGraph(
     println("Result: ${definedAvDict.size}/${avDict.size}")
     println("Stats $run:")
     definedAvDict.values
-        .groupBy {
-            val exclusive = it.checksums.size
-            val released = it.released.size
-            exclusive.coerceAtMost(max) to (exclusive + released).coerceAtMost(max)
-        }
+        .groupBy { it.checksums.size.coerceAtMost(max) }
         .mapValues { (_, v) -> v.size }
-        .toSortedMap(compareBy({ it.first }, { it.second }))
+        .entries
+        .sortedBy { it.key }
         .forEach { (k, u) -> println("$k -> $u") }
     println(avDict.values.sumBy { it.checksums.size.coerceAtMost(max) }.toDouble() / avDict.size.toDouble())
     println()

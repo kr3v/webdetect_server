@@ -1,5 +1,6 @@
 package com.cloudlinux.webdetect.util
 
+import it.unimi.dsi.fastutil.ints.IntIterable
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import java.util.stream.Collectors
 import java.util.stream.Stream
@@ -28,3 +29,10 @@ private fun <T> countIntersectsImpl(lhs: Set<T>, rhs: Set<T>): Int {
 }
 
 fun <T> Stream<T>.toList(size: Int): ObjectArrayList<T> = collect(Collectors.toCollection { ObjectArrayList<T>(size) })
+
+inline fun IntIterable.intForEach(fn: (Int) -> Unit) {
+    val iterator = iterator()
+    while (iterator.hasNext()) {
+        fn(iterator.nextInt())
+    }
+}

@@ -14,7 +14,7 @@ var HasIntProperties.exclusiveChecksums
         properties[0] = value
     }
 
-@Deprecated("does not support [AVGE.released]")
+@Deprecated("Does not support [AVGE.released]")
 class BfsBasedSolution<C : ChecksumKey<C>>(
     private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry<C>>,
     private val sufficientChecksumsRange: IntProgression,

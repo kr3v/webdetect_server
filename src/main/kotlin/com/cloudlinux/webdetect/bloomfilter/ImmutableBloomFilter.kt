@@ -12,7 +12,7 @@ data class ImmutableBloomFilter(
     val items: MutableSet<Checksum>,
     val type: HashingType
 ) {
-    private val filterSize = 32 - Integer.numberOfLeadingZeros(config.size())
+    private val bitsInFilterSize = 32 - Integer.numberOfLeadingZeros(config.size())
 
     fun addRaw(csl: ChecksumLong) = when (type) {
         HashingType.SHA256 -> addRawSha256(csl.byteArray)
@@ -59,6 +59,7 @@ data class ImmutableBloomFilter(
         }
     }
 
+    // is this wrong? we take [bitsInFilterSize], but iterating through *Byte*Array (like 8x overhead?)
     private inline fun sha256(ba: ByteArray, fn: (Int) -> Unit) {
         val k = config.hashes()
         val m = config.size()
@@ -66,7 +67,7 @@ data class ImmutableBloomFilter(
         var baIdx = 0
         for (i in 0 until k) {
             var position = 0L
-            for (j in 0 until filterSize) {
+            for (j in 0 until bitsInFilterSize) {
                 position = position * 256 + (ba[baIdx++] + 128)
                 if (baIdx == ba.size) {
                     baIdx %= ba.size

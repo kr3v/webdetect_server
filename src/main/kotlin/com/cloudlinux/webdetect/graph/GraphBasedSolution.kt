@@ -85,12 +85,12 @@ fun <C : ChecksumKey<C>> graphBasedSolution(webdetectCtx: WebdetectContext<C>): 
     FindAppVersionsInclusionsTask(avDict).process()
 
     PriorityQueueBasedSolution(avDict).process()
-    val definedAvDict = avDict.filterValues { it.checksums.size > 0 }
 
-    // val maxChecksums = 5
-    // statsGraph(avDict.filterValues { it.checksums.size > 0 }, avDict, maxChecksums, 0)
-    // ChecksumBalancer(avDict, csDict, maxChecksums).process()
-    // statsGraph(avDict.filterValues { it.checksums.size > 0 }, avDict, maxChecksums, 1)
+    val maxChecksums = 5
+    statsGraph(avDict.filterValues { it.checksums.size > 0 }, avDict, maxChecksums, 0)
+    ChecksumBalancer(avDict, csDict, maxChecksums).process()
+    statsGraph(avDict.filterValues { it.checksums.size > 0 }, avDict, maxChecksums, 1)
+    val definedAvDict = avDict.filterValues { it.checksums.size > 0 }
 
     val undetected = avDict - definedAvDict.keys
     return GraphBasedSolutionResult<C>(
