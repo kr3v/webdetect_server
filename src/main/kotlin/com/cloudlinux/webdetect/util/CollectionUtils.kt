@@ -1,6 +1,7 @@
 package com.cloudlinux.webdetect.util
 
 import it.unimi.dsi.fastutil.ints.IntIterable
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import java.util.stream.Collectors
 import java.util.stream.Stream
@@ -35,4 +36,29 @@ inline fun IntIterable.intForEach(fn: (Int) -> Unit) {
     while (iterator.hasNext()) {
         fn(iterator.nextInt())
     }
+}
+
+
+inline fun IntOpenHashSet.minBy(orElse: Long, fn: (Int) -> Long): Long {
+    if (size == 0) return orElse
+    var curr = Long.MAX_VALUE
+    intForEach {
+        val mapped = fn(it)
+        if (mapped < curr) {
+            curr = mapped
+        }
+    }
+    return curr
+}
+
+inline fun IntOpenHashSet.maxBy(orElse: Long, fn: (Int) -> Long): Long {
+    if (size == 0) return orElse
+    var curr = Long.MIN_VALUE
+    intForEach {
+        val apply = fn(it)
+        if (curr < apply) {
+            curr = apply
+        }
+    }
+    return curr
 }

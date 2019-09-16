@@ -7,31 +7,30 @@ import com.cloudlinux.webdetect.FSortedSet
 import com.cloudlinux.webdetect.WebdetectContext
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.graph.ChecksumGraphEntry
-import com.cloudlinux.webdetect.graph.ChecksumKey
 import com.cloudlinux.webdetect.graph.createGraph
 import com.cloudlinux.webdetect.util.countIntersects
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import java.util.stream.Collectors
 
-typealias Group<C> = Map.Entry<Set<String>, List<ChecksumGraphEntry<C>>>
+typealias Group = Map.Entry<Set<String>, List<ChecksumGraphEntry>>
 
-data class VersionToChecksumGroup<C : ChecksumKey<C>>(
+data class VersionToChecksumGroup(
     val versions: Set<String>,
-    val checksums: List<ChecksumGraphEntry<C>>,
+    val checksums: List<ChecksumGraphEntry>,
     var canBeSolved: Int,
     private val hashCode: Int = versions.hashCode()
-) : Group<C> {
+) : Group {
 
     override val key: Set<String>
         get() = versions
-    override val value: List<ChecksumGraphEntry<C>>
+    override val value: List<ChecksumGraphEntry>
         get() = checksums
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as VersionToChecksumGroup<*>
+        other as VersionToChecksumGroup
 
         if (versions != other.versions) return false
 
@@ -47,10 +46,10 @@ data class VersionToChecksumGroup<C : ChecksumKey<C>>(
  *  2. Avoid duplicating [VersionToChecksumGroup] in [solveWithinApp] and [secondStage]
  *  3. This whole thing need to be rewritten to support [AppVersion.Single.group]
  */
-class GroupingByChecksumsTask<C : ChecksumKey<C>>(
-    private val webdetectCtx: WebdetectContext<C>,
-    private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry<C>>,
-    private val definedAvDict: FMutableMap<AppVersion, AppVersionGraphEntry<C>>
+class GroupingByChecksumsTask(
+    private val webdetectCtx: WebdetectContext,
+    private val avDict: FMutableMap<AppVersion, AppVersionGraphEntry>,
+    private val definedAvDict: FMutableMap<AppVersion, AppVersionGraphEntry>
 ) {
     fun findGroups(params: Params) {
         val allApps = avDict.keys
@@ -77,7 +76,7 @@ class GroupingByChecksumsTask<C : ChecksumKey<C>>(
         csDict.keys.removeAll(usedInGraphTask)
         usedInGraphTask.clear()
 
-        val result = FMutableMap<String, FMutableMap<FMutableSet<String>, ObjectArrayList<ChecksumGraphEntry<C>>>>()
+        val result = FMutableMap<String, FMutableMap<FMutableSet<String>, ObjectArrayList<ChecksumGraphEntry>>>()
         for (cs in csDict.values) {
             val apps = cs.appVersions.flatMapTo(FMutableSet()) { it.key.apps() }
             if (apps.size != 1) continue
@@ -115,17 +114,17 @@ class GroupingByChecksumsTask<C : ChecksumKey<C>>(
 
     private fun solveWithinApp(
         app: String,
-        versionsDict: FMutableMap<FMutableSet<String>, ObjectArrayList<ChecksumGraphEntry<C>>>,
+        versionsDict: FMutableMap<FMutableSet<String>, ObjectArrayList<ChecksumGraphEntry>>,
         needToBeSolved: FMutableSet<String>,
         params: GroupingByChecksumsTask.Params
-    ): Pair<FMutableSet<VersionToChecksumGroup<C>>, List<AppVersion.Single>> {
-        val result = FMutableSet<VersionToChecksumGroup<C>>()
+    ): Pair<FMutableSet<VersionToChecksumGroup>, List<AppVersion.Single>> {
+        val result = FMutableSet<VersionToChecksumGroup>()
 
         versionsDict.entries.removeIf { (_, it) -> it.size < params.minimumPerEntry }
         versionsDict.entries.removeIf { (k, _) -> k.size == 1 }
         val canBeSolved = versionsDict.keys.flatMapTo(FMutableSet()) { it }
         val unsolved = (needToBeSolved - canBeSolved).map { AppVersion.Single(app, it) }
-        val versionToGroups = FMutableMap<String, FMutableSet<VersionToChecksumGroup<C>>>()
+        val versionToGroups = FMutableMap<String, FMutableSet<VersionToChecksumGroup>>()
         for (entry in versionsDict.entries) {
             val (k, _) = entry
             for (version in k) {
@@ -141,9 +140,9 @@ class GroupingByChecksumsTask<C : ChecksumKey<C>>(
 
     private fun firstStage(
         canBeSolved: FMutableSet<String>,
-        groupDict: FMutableMap<out Set<String>, out List<ChecksumGraphEntry<C>>>,
-        result: FMutableSet<VersionToChecksumGroup<C>>,
-        versionToGroups: FMutableMap<String, FMutableSet<VersionToChecksumGroup<C>>>
+        groupDict: FMutableMap<out Set<String>, out List<ChecksumGraphEntry>>,
+        result: FMutableSet<VersionToChecksumGroup>,
+        versionToGroups: FMutableMap<String, FMutableSet<VersionToChecksumGroup>>
     ) {
         val groupsWithSingleGroupedVersions = versionToGroups
             .values.filter { it.size == 1 }.flatMapTo(FMutableSet()) { it }
@@ -156,11 +155,11 @@ class GroupingByChecksumsTask<C : ChecksumKey<C>>(
 
     private fun secondStage(
         canBeSolved: FMutableSet<String>,
-        groupDict: FMutableMap<FMutableSet<String>, ObjectArrayList<ChecksumGraphEntry<C>>>,
-        result: FMutableSet<VersionToChecksumGroup<C>>,
-        versionToGroups: FMutableMap<String, FMutableSet<VersionToChecksumGroup<C>>>
-    ): FMutableSet<VersionToChecksumGroup<C>> {
-        val c = compareBy<VersionToChecksumGroup<C>>({ it.canBeSolved }, { it.versions.size }, { it.checksums.size })
+        groupDict: FMutableMap<FMutableSet<String>, ObjectArrayList<ChecksumGraphEntry>>,
+        result: FMutableSet<VersionToChecksumGroup>,
+        versionToGroups: FMutableMap<String, FMutableSet<VersionToChecksumGroup>>
+    ): FMutableSet<VersionToChecksumGroup> {
+        val c = compareBy<VersionToChecksumGroup>({ it.canBeSolved }, { it.versions.size }, { it.checksums.size })
             .thenComparing { o1, o2 ->
                 if (o1 == o2) 0
                 else {
@@ -170,7 +169,7 @@ class GroupingByChecksumsTask<C : ChecksumKey<C>>(
                     else h1 - h2
                 }
             }
-        val v = FSortedSet<VersionToChecksumGroup<C>>(c)
+        val v = FSortedSet<VersionToChecksumGroup>(c)
         groupDict.entries.mapTo(v) { VersionToChecksumGroup(it.key, it.value, countIntersects(it.key, canBeSolved)) }
 
         while (canBeSolved.isNotEmpty() && v.isNotEmpty()) {

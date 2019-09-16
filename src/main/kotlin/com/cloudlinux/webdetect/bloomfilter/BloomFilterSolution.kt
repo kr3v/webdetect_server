@@ -1,6 +1,5 @@
 package com.cloudlinux.webdetect.bloomfilter
 
-import com.cloudlinux.webdetect.Checksum
 import com.cloudlinux.webdetect.WebdetectContext
 import java.io.File
 import java.io.PrintWriter
@@ -15,7 +14,7 @@ data class BloomFilterSolutionParameters(
 
 fun bloomFilterBasedSolution(
     solutionContext: BloomFilterSolutionParameters,
-    dataContext: WebdetectContext<Checksum>,
+    dataContext: WebdetectContext,
     toBeDetected: List<String>
 ) {
     val filter = buildHierarchicalBloomFilter(solutionContext, dataContext)
@@ -24,7 +23,7 @@ fun bloomFilterBasedSolution(
 }
 
 fun bloomFilterSolution(
-    webdetectCtx: WebdetectContext<Checksum>,
+    webdetectCtx: WebdetectContext,
     detect: Optional<String>
 ) {
     bloomFilterBasedSolution(

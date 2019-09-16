@@ -1,8 +1,9 @@
 package com.cloudlinux.webdetect
 
-import com.cloudlinux.webdetect.graph.ChecksumKey
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectRBTreeMap
+import it.unimi.dsi.fastutil.objects.ObjectArrayList
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 import it.unimi.dsi.fastutil.objects.ObjectRBTreeSet
@@ -14,74 +15,69 @@ typealias Checksum = ChecksumLong
  */
 typealias FMutableSet<T> = ObjectOpenHashSet<T>
 
+typealias IntMutableSet = IntOpenHashSet
+
 typealias FMutableLinkedSet<T> = ObjectLinkedOpenHashSet<T>
 typealias FMutableMap<K, V> = Object2ObjectOpenHashMap<K, V>
 typealias FSortedMap<K, V> = Object2ObjectRBTreeMap<K, V>
 typealias FSortedSet<T> = ObjectRBTreeSet<T>
 
-
-interface EntityFactory<K, I, E> {
-    fun constructor(values: List<I>, cached: I.() -> I): E
-    fun key(values: List<I>): K
-    fun isValid(values: List<I>): Boolean
-}
+typealias FArrayList<T> = ObjectArrayList<T>
 
 /**
  * Holds information about checksums and app-versions parsed from given DB.
  * Perform deduplication of [Checksum], [String], [AppVersion] to keep heap as small as possible.
  */
-class WebdetectContext<C : ChecksumKey<C>>(
-    private val appVersionFactory: EntityFactory<String, String, AppVersion>,
-    private val checksumFactory: EntityFactory<String, String, C>
+class WebdetectContext(
+    val pathToCsv: String
 ) {
-    val checksumToAppVersions: FMutableMap<C, FMutableSet<AppVersion>> = FMutableMap()
-    val appVersionsToChecksums: FMutableMap<AppVersion, FMutableSet<C>> = FMutableMap()
-    val pool = Pool<C>()
+    val checksumToAppVersions: FMutableMap<Checksum, FMutableSet<AppVersion>> = FMutableMap(7_000_000)
+    val appVersionsToChecksums: FMutableMap<AppVersion, FMutableSet<Checksum>> = FMutableMap(500_000)
+    val pool = Pool()
+
+    data class PathDepth(
+        val path: String?,
+        val depth: Int?
+    )
 
     fun doPooling(
-        avValues: List<String>,
-        cValues: List<String>
+        app: String,
+        version: String,
+        checksum: String,
+        depth: Int? = null,
+        path: String? = null
     ) {
-        val av = appVersion(avValues)
-        val cs = checksum(cValues)
+        val av = appVersion(app, version)
+        val cs = checksum(checksum)
+
         appVersionsToChecksums.computeIfAbsent(av) { FMutableSet() } += cs
         checksumToAppVersions.computeIfAbsent(cs) { FMutableSet() } += av
     }
 
     fun cleanup() {
-        pool.cleanup()
         checksumToAppVersions.clear()
         checksumToAppVersions.trim()
         appVersionsToChecksums.clear()
         appVersionsToChecksums.trim()
     }
 
-    private fun checksum(values: List<String>): C =
-        pool.checksums.computeIfAbsent(string(checksumFactory.key(values))) {
-            checksumFactory.constructor(
-                values,
-                ::string
-            )
-        }
+    private fun checksum(cs: String): Checksum =
+        pool.checksums.computeIfAbsent(string(cs)) { key -> ChecksumLong(key) }
 
-    private fun appVersion(values: List<String>): AppVersion =
-        pool.appVersions.computeIfAbsent(string(appVersionFactory.key(values))) {
-            appVersionFactory.constructor(
-                values,
-                ::string
-            )
-        }
+    private fun string(string: String): String = pool.strings.computeIfAbsent(string) { string }
 
-    private fun string(string: String): String =
-        pool.strings.computeIfAbsent(string) { string }
+    private fun appVersion(app: String, version: String): AppVersion =
+        pool.appVersions.computeIfAbsent(app + version) {
+            AppVersion.Single(string(app), string(version), string(app + version))
+        }
 
     /**
      * Separated from [WebdetectContext], as it can be cleaned-up a little bit earlier
      */
-    class Pool<C : ChecksumKey<C>> {
-        val appVersions = FMutableMap<String, AppVersion>()
-        val checksums = FMutableMap<String, C>()
-        val strings = FMutableMap<String, String>()
+    class Pool {
+        val appVersions = FMutableMap<String, AppVersion>(500_000)
+        val checksums = FMutableMap<String, Checksum>(7_000_000)
+        val strings = FMutableMap<String, String>(8_500_000)
 
         fun cleanup() {
             appVersions.clear()

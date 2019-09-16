@@ -1,6 +1,5 @@
 package com.cloudlinux.webdetect
 
-import com.cloudlinux.webdetect.graph.ChecksumKey
 import com.fasterxml.jackson.annotation.JsonIgnore
 import java.nio.ByteBuffer
 import java.util.Arrays
@@ -25,13 +24,12 @@ fun String.parseChecksum(): LongArray {
 
 data class ChecksumLong(
     val ll: LongArray,
-    val path: String?,
     val hash: Int = Arrays.hashCode(ll)
-) : ChecksumKey<ChecksumLong> {
+) : Comparable<ChecksumLong> {
 
     val byteArray: ByteArray get() = asByteArray()
 
-    constructor(s: String, path: String? = null) : this(s.parseChecksum(), path)
+    constructor(s: String) : this(s.parseChecksum())
 
     override fun compareTo(other: ChecksumLong): Int {
         for (idx in ll.indices) {
@@ -45,7 +43,7 @@ data class ChecksumLong(
     override fun hashCode() = hash
     override fun toString(): String = asHexString()
 
-    override fun asByteArray(): ByteArray {
+    private fun asByteArray(): ByteArray {
         val result = ByteArray(32)
         val bb = ByteBuffer.wrap(result)
         ll.forEach { bb.putLong(it) }

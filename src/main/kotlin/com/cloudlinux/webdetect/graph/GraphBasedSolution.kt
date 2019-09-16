@@ -1,6 +1,7 @@
 package com.cloudlinux.webdetect.graph
 
 import com.cloudlinux.webdetect.AppVersion
+import com.cloudlinux.webdetect.Checksum
 import com.cloudlinux.webdetect.FMutableMap
 import com.cloudlinux.webdetect.FMutableSet
 import com.cloudlinux.webdetect.WebdetectContext
@@ -11,11 +12,11 @@ import com.cloudlinux.webdetect.graph.pq.PriorityQueue
 import com.cloudlinux.webdetect.graph.pq.PriorityQueueBasedSolution
 import java.time.ZonedDateTime
 
-data class GraphBasedSolutionResult<C : ChecksumKey<C>>(
-    val avDict: FMutableMap<AppVersion, AppVersionGraphEntry<C>>,
-    val csDict: FMutableMap<C, ChecksumGraphEntry<C>>,
-    val definedAvDict: Map<AppVersion, AppVersionGraphEntry<C>>,
-    val undefinedAvDict: Map<AppVersion, AppVersionGraphEntry<C>>
+data class GraphBasedSolutionResult(
+    val avDict: FMutableMap<AppVersion, AppVersionGraphEntry>,
+    val csDict: FMutableMap<Checksum, ChecksumGraphEntry>,
+    val definedAvDict: Map<AppVersion, AppVersionGraphEntry>,
+    val undefinedAvDict: Map<AppVersion, AppVersionGraphEntry>
 )
 
 /**
@@ -69,13 +70,13 @@ data class GraphBasedSolutionResult<C : ChecksumKey<C>>(
  * @client
  * todo
  */
-fun <C : ChecksumKey<C>> graphBasedSolution(webdetectCtx: WebdetectContext<C>): GraphBasedSolutionResult<C> {
+fun graphBasedSolution(webdetectCtx: WebdetectContext): GraphBasedSolutionResult {
     println("${ZonedDateTime.now()}: creating graph started")
     val (avDict, csDict) = createGraph(
         // filtering significantly speeds-up PQ performance by excluding checksums that are shared between big amount of app-versions (empty file, for example)
         // Fibonacci heap may do the same without filtering by removing log N at key updating
         // on other hand, we must exclude checksums representing, for example, empty file to avoid false-positives, so just optimization might not help
-        webdetectCtx.checksumToAppVersions.filterValues { it.flatMapTo(FMutableSet(), AppVersion::apps).size <= 50 },
+        webdetectCtx.checksumToAppVersions.filterValues { it.flatMapTo(FMutableSet(), AppVersion::apps).size == 1 },
         webdetectCtx.appVersionsToChecksums
     )
     println("${ZonedDateTime.now()}: creating graph done")
@@ -88,12 +89,12 @@ fun <C : ChecksumKey<C>> graphBasedSolution(webdetectCtx: WebdetectContext<C>): 
 
     val maxChecksums = 5
     statsGraph(avDict.filterValues { it.checksums.size > 0 }, avDict, maxChecksums, 0)
-    ChecksumBalancer(avDict, csDict, maxChecksums).process()
+    ChecksumBalancer(avDict).process()
     statsGraph(avDict.filterValues { it.checksums.size > 0 }, avDict, maxChecksums, 1)
     val definedAvDict = avDict.filterValues { it.checksums.size > 0 }
 
     val undetected = avDict - definedAvDict.keys
-    return GraphBasedSolutionResult<C>(
+    return GraphBasedSolutionResult(
         avDict,
         csDict,
         definedAvDict,

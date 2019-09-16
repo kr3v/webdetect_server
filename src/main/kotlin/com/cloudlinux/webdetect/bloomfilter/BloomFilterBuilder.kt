@@ -11,7 +11,7 @@ import java.util.BitSet
 
 fun buildHierarchicalBloomFilter(
     solutionCtx: BloomFilterSolutionParameters,
-    dataCtx: WebdetectContext<Checksum>
+    dataCtx: WebdetectContext
 ): HierarchicalBloomFilter<Pair<List<String>, HierarchicalBloomFilter<List<String>>>> {
     val lbfBuilder = HierarchicalBloomFilterBuilder(solutionCtx)
     return lbfBuilder.build(
@@ -24,7 +24,7 @@ fun buildHierarchicalBloomFilter(
 
 fun buildLinearBloomFilter(
     solutionCtx: BloomFilterSolutionParameters,
-    dataCtx: WebdetectContext<Checksum>
+    dataCtx: WebdetectContext
 ): List<Pair<ImmutableBloomFilter, Pair<List<String>, List<Pair<ImmutableBloomFilter, List<String>>>>>> {
     val appEntries = dataCtx.appVersionsToChecksums.keys.groupBy { it.apps() }.entries
     return appEntries
@@ -44,7 +44,7 @@ fun buildLinearBloomFilter(
 
 fun bloomFilter(
     appVersions: List<AppVersion>,
-    ctx: WebdetectContext<Checksum>,
+    ctx: WebdetectContext,
     solutionCtx: BloomFilterSolutionParameters
 ) = bloomFilter(appVersions.flatMapTo(FMutableSet()) { ctx.appVersionsToChecksums[it]!! }, solutionCtx)
 

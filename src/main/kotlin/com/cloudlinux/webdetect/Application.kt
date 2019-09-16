@@ -1,7 +1,7 @@
 package com.cloudlinux.webdetect
 
-import com.cloudlinux.webdetect.graph.ChecksumKey
 import com.cloudlinux.webdetect.graph.GraphBasedSolutionSerializer
+import com.cloudlinux.webdetect.graph.SerializableChecksumsChooser
 import com.cloudlinux.webdetect.graph.graphBasedSolution
 import com.cloudlinux.webdetect.graph.statsGraph
 import com.cloudlinux.webdetect.graph.writeUndetected
@@ -19,7 +19,7 @@ fun main(args: Array<String>) {
     val `in`: String = args[0]
     val out: String = args[1]
 
-    val webdetectCtx = buildContextByCsv(`in`, ChecksumObjects)
+    val webdetectCtx = buildContextByCsv(`in`)
     webdetectCtx.pool.cleanup()
 
     graphSolution(
@@ -31,16 +31,16 @@ fun main(args: Array<String>) {
 private const val undetectedOutputPath = "undetected"
 private const val matricesOutputPath = "matrices"
 
-private fun <C : ChecksumKey<C>> graphSolution(webdetectCtx: WebdetectContext<C>, out: String) {
+private fun graphSolution(ctx: WebdetectContext, out: String) {
     val max = 5
-    val min = 1
-    val (avDict, _, definedAvDict, undetected) = graphBasedSolution(webdetectCtx)
+    val (avDict, csDict, definedAvDict, undetected) = graphBasedSolution(ctx)
 
     println("${ZonedDateTime.now()}: printing stats")
     statsGraph(definedAvDict, avDict, max, -1)
 
     println("${ZonedDateTime.now()}: serializing")
-    GraphBasedSolutionSerializer(avDict, definedAvDict, max).serialize(
+    val serializableChecksumsChooser = SerializableChecksumsChooser(ctx.pathToCsv, csDict, avDict, max)
+    GraphBasedSolutionSerializer(avDict, definedAvDict, serializableChecksumsChooser).serialize(
         Optional.of("$out.json"),
         Optional.of("$out.ldb")
     )

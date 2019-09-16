@@ -1,10 +1,10 @@
 package com.cloudlinux.webdetect.bloomfilter
 
 import com.cloudlinux.webdetect.AppVersion
-import com.cloudlinux.webdetect.Checksum
 import com.cloudlinux.webdetect.ChecksumLong
 import com.cloudlinux.webdetect.FMutableMap
 import com.cloudlinux.webdetect.FMutableSet
+import com.cloudlinux.webdetect.WebdetectContext
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.util.toList
 import java.util.concurrent.ConcurrentHashMap
@@ -13,13 +13,14 @@ import kotlin.math.roundToInt
 
 /// defines best params for [BloomFilterSolutionParameters] via brute-force
 fun find(
-    definedAvDict: FMutableMap<AppVersion, AppVersionGraphEntry<Checksum>>,
-    detect: List<ChecksumLong>
+    ctx: WebdetectContext,
+    definedAvDict: FMutableMap<AppVersion, AppVersionGraphEntry>,
+    detect: List<ChecksumLong>,
+    maxChecksums: Int
 ) {
     definedAvDict.forEach { (_, v) ->
-        v.checksums.removeAll(v.checksums - v.checksums
-            .sortedBy { cs -> cs.dependsOn.size }
-            .take(5))
+        TODO("v.takeSerializableChecksums(maxChecksums, ctx).map { it.entry }")
+//        v.checksums.removeAll(v.checksums - todo)
     }
 
     val defined = definedAvDict.values.map { it.checksums.mapTo(FMutableSet()) { it.key } to it.key }

@@ -1,84 +1,50 @@
 package com.cloudlinux.webdetect
 
-import com.cloudlinux.webdetect.graph.ChecksumKey
+import com.cloudlinux.webdetect.graph.AVGE
+import com.cloudlinux.webdetect.graph.CGE
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import java.time.ZonedDateTime
 
 
-object AppVersionFactory : EntityFactory<String, String, AppVersion> {
-    override fun constructor(values: List<String>, cached: String.() -> String) = AppVersion.Single(
-        values[0].cached(),
-        values[1].cached(),
-        values.getOrNull(2)?.cached(),
-        (values[0] + values[1]).cached()
+fun buildContextByCsv(pathToCsv: String): WebdetectContext {
+    val webdetectCtx = WebdetectContext(pathToCsv)
+    println("${ZonedDateTime.now()}: $pathToCsv processing started")
+    read(
+        path = pathToCsv,
+        separator = "\t",
+        handler = { list ->
+            webdetectCtx.doPooling(list[0], list[1], list[2], list.getOrNull(3)?.toInt(), list.getOrNull(4))
+        }
     )
-
-    override fun key(values: List<String>) = values[0] + values[1]
-    override fun isValid(values: List<String>) = values.size in 2..3
+    println("${ZonedDateTime.now()}: $pathToCsv processing done")
+    webdetectCtx.pool.cleanup()
+    return webdetectCtx
 }
 
-interface CObjects<C : ChecksumKey<C>> {
-    val factory: EntityFactory<String, String, C>
-    val splitter: Splitter
-}
-
-object MethodNameObjects : CObjects<MethodName> {
-    object Factory : EntityFactory<String, String, MethodName> {
-        override fun constructor(values: List<String>, cached: String.() -> String) = MethodName(
-            values[0].toLowerCase().cached(),
-            values.getOrNull(1)?.cached()
-        )
-
-        override fun key(values: List<String>) = values.first()
-        override fun isValid(values: List<String>) = values.size in 1..2
-    }
-
-    object Splitter : com.cloudlinux.webdetect.Splitter {
-        override fun split(values: List<String>) = Pair(
-            values.take(2),
-            values.drop(2)
-        )
-
-        override fun isValid(values: List<String>) = values.size in 3..5
-    }
-
-    override val factory get() = Factory
-    override val splitter get() = Splitter
-}
-
-object ChecksumObjects : CObjects<Checksum> {
-    object Factory : EntityFactory<String, String, Checksum> {
-        override fun constructor(values: List<String>, cached: String.() -> String) = ChecksumLong(
-            values[0],
-            values.getOrNull(1)?.cached()
-        )
-
-        override fun key(values: List<String>) = values.first()
-        override fun isValid(values: List<String>) = values.size in 1..2
-    }
-
-    object Splitter : com.cloudlinux.webdetect.Splitter {
-        override fun split(values: List<String>) = Pair(
-            values.take(2),
-            values.drop(2)
-        )
-
-        override fun isValid(values: List<String>) = values.size in 3..4
-    }
-
-    override val factory get() = Factory
-    override val splitter get() = Splitter
-}
-
-fun <C : ChecksumKey<C>> buildContextByCsv(`in`: String, objects: CObjects<C>): WebdetectContext<C> {
-    val webdetectCtx = WebdetectContext(AppVersionFactory, objects.factory)
-    println("${ZonedDateTime.now()}: $`in` processing started")
+fun buildDepths(
+    `in`: String,
+    avDict: Map<AppVersion.Single, AVGE>,
+    csDict: Map<Checksum, CGE>
+): Map<CGE, IntOpenHashSet> {
+    println("${ZonedDateTime.now()}: looking for checksums depths started")
+    val result = FMutableMap<CGE, IntOpenHashSet>()
     read(
         path = `in`,
         separator = "\t",
-        splitter = objects.splitter,
-        rowsHandler = webdetectCtx::doPooling
+        handler = { list ->
+            val app = list[0]
+            val version = list[1]
+            val checksum = list[2]
+            val depth = list.getOrNull(3)?.toInt()
+            if (depth != null) {
+                val av = avDict[AppVersion.Single(app, version)] ?: error("should not happen")
+                val cs = csDict[ChecksumLong(checksum)]
+                if (cs in av.checksums) {
+                    result.computeIfAbsent(cs) { IntMutableSet() }.add(depth)
+                }
+            }
+        }
     )
-    println("${ZonedDateTime.now()}: $`in` processing done")
-    webdetectCtx.pool.cleanup()
-    return webdetectCtx
+    println("${ZonedDateTime.now()}: looking for checksums depths done")
+    return result
 }

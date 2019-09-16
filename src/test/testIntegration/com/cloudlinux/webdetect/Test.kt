@@ -2,9 +2,9 @@ package com.cloudlinux.webdetect
 
 import com.cloudlinux.webdetect.graph.AppVersionGraphEntry
 import com.cloudlinux.webdetect.graph.ChecksumGraphEntry
-import com.cloudlinux.webdetect.graph.ChecksumKey
 import com.cloudlinux.webdetect.graph.GraphBasedSolutionSerializer
 import com.cloudlinux.webdetect.graph.graphBasedSolution
+import com.cloudlinux.webdetect.graph.takeSerializableChecksums
 import com.cloudlinux.webdetect.graph.writeUndetected
 import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap
 import java.io.File
@@ -24,7 +24,7 @@ fun main(args: Array<String>) {
         .map { it.fileName to Files.newBufferedReader(it) }
         .toList()
 
-    val webdetectCtx = buildContextByCsv(`in`, ChecksumObjects)
+    val webdetectCtx = buildContextByCsv(`in`)
     System.gc()
     val (avDict, csDict, definedAvDict, undetected) = graphBasedSolution(webdetectCtx)
 
@@ -40,13 +40,13 @@ fun main(args: Array<String>) {
 
     val db = definedAvDict
         .values
-        .flatMap { av -> av.checksums.sortedBy { it.dependsOn.size }.take(maxChecksums) }
+        .flatMap { av -> av.takeSerializableChecksums(maxChecksums) }
         .associateByTo(FMutableMap()) { it.key.toString() }
 
     var misverdict = 0
     detect.forEach { (file, io) ->
-        val used = FMutableSet<ChecksumGraphEntry<Checksum>>()
-        val unused = FMutableSet<ChecksumGraphEntry<Checksum>>()
+        val used = FMutableSet<ChecksumGraphEntry>()
+        val unused = FMutableSet<ChecksumGraphEntry>()
         io.forEachLine { ln ->
             val verdict = ln[17]
             when (val line = ln.drop(18).take(64)) {
@@ -69,8 +69,8 @@ fun main(args: Array<String>) {
 //            .sortedBy { it.key.path ?: "<sorry>" }
 
         fun <T> Collection<T>.format() = joinToString(separator = "\n\t", prefix = "\n\t")
-        fun List<ChecksumGraphEntry<Checksum>>.format() = map { k -> k.key.toString() + " -> " + k.key.path }.format()
-        fun Map<AppVersionGraphEntry<Checksum>, List<ChecksumGraphEntry<Checksum>>>.format() = entries
+        fun List<ChecksumGraphEntry>.format() = map { k -> k.key.toString() + " -> " + k.key.path }.format()
+        fun Map<AppVersionGraphEntry, List<ChecksumGraphEntry>>.format() = entries
             .map { (k, v) -> k.key.toString() + ": " + v.size + "/" + k.checksums.size/* + " : " + v.joinToString(" ")*/ }
             .sorted()
             .format()
@@ -96,8 +96,8 @@ fun main(args: Array<String>) {
     println("Verdict != '1', but found in DB: $misverdict")
 }
 
-class WebdetectClient<C : ChecksumKey<C>>(
-    found: Collection<ChecksumGraphEntry<C>>,
+class WebdetectClient(
+    found: Collection<ChecksumGraphEntry>,
     private val requiredChecksumsCoeff: Double,
     private val maxChecksums: Int
 ) {
@@ -124,16 +124,16 @@ class WebdetectClient<C : ChecksumKey<C>>(
             .associateWith(foundAvs::getValue)
     }
 
-    private fun AppVersionGraphEntry<C>.hasEnoughMatchedChecksums(matchedChecksums: List<ChecksumGraphEntry<C>>) =
+    private fun AppVersionGraphEntry.hasEnoughMatchedChecksums(matchedChecksums: List<ChecksumGraphEntry>) =
         matchedChecksums.size.toDouble() / checksums.size.coerceAtMost(maxChecksums) >= requiredChecksumsCoeff
 
-    private val memoizedIsValidMap = Object2BooleanOpenHashMap<AppVersionGraphEntry<C>>()
-    private fun AppVersionGraphEntry<C>.memoizedIsValidByDependsOn(): Boolean = when (this) {
+    private val memoizedIsValidMap = Object2BooleanOpenHashMap<AppVersionGraphEntry>()
+    private fun AppVersionGraphEntry.memoizedIsValidByDependsOn(): Boolean = when (this) {
         in memoizedIsValidMap -> memoizedIsValidMap.getBoolean(this)
         !in foundAvs -> false
         else -> isValidByDependsOn().also { memoizedIsValidMap[this] = it }
     }
 
-    private fun AppVersionGraphEntry<C>.isValidByDependsOn() =
+    private fun AppVersionGraphEntry.isValidByDependsOn() =
         foundAvs[this]?.any { cs -> cs.dependsOn.none { doAv -> doAv.memoizedIsValidByDependsOn() } } ?: false
 }

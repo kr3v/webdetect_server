@@ -4,9 +4,9 @@ import com.cloudlinux.webdetect.AppVersion
 import com.cloudlinux.webdetect.graph.grouping.Matrix
 import java.io.PrintWriter
 
-fun <C : ChecksumKey<C>> statsGraph(
-    definedAvDict: Map<AppVersion, AppVersionGraphEntry<C>>,
-    avDict: MutableMap<AppVersion, AppVersionGraphEntry<C>>,
+fun statsGraph(
+    definedAvDict: Map<AppVersion, AppVersionGraphEntry>,
+    avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
     max: Int,
     run: Int
 ) {
@@ -22,9 +22,9 @@ fun <C : ChecksumKey<C>> statsGraph(
     println()
 }
 
-fun <C : ChecksumKey<C>> writeUndetected(
+fun writeUndetected(
     undetected: Collection<AppVersion>,
-    avDict: MutableMap<AppVersion, AppVersionGraphEntry<C>>,
+    avDict: MutableMap<AppVersion, AppVersionGraphEntry>,
     writer: PrintWriter = PrintWriter(System.out)
 ) {
     if (undetected.isEmpty()) return
@@ -38,8 +38,8 @@ fun <C : ChecksumKey<C>> writeUndetected(
     writer.flush()
 }
 
-fun <C : ChecksumKey<C>> writeSimilarityMatrices(
-    m: Map<List<String>, Pair<List<AppVersionGraphEntry<C>>, Matrix>>,
+fun writeSimilarityMatrices(
+    m: Map<List<String>, Pair<List<AppVersionGraphEntry>, Matrix>>,
     writer: PrintWriter = PrintWriter(System.out)
 ) {
     if (m.isEmpty()) return
@@ -53,8 +53,8 @@ fun <C : ChecksumKey<C>> writeSimilarityMatrices(
     writer.flush()
 }
 
-private fun <C : ChecksumKey<C>> writeMatrix(
-    header: List<AppVersionGraphEntry<C>>,
+private fun writeMatrix(
+    header: List<AppVersionGraphEntry>,
     matrix: Matrix,
     writer: PrintWriter
 ) {
@@ -64,7 +64,7 @@ private fun <C : ChecksumKey<C>> writeMatrix(
     val intFormat = paddingFormat + "d"
     val floatFormat = "$paddingFormat.2f"
 
-    fun PrintWriter.printHeaderEntry(it: AppVersionGraphEntry<C>) {
+    fun PrintWriter.printHeaderEntry(it: AppVersionGraphEntry) {
         printf(stringFormat, it.key.versions().toString())
     }
 
