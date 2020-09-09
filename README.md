@@ -12,7 +12,7 @@ See an example.
 
 For further info, take a look at:
 - [Gradle task `generateDatabase`](build.gradle.kts) 
-- [main method](src/main/kotlin/kr3v/webdetect/Application.kt).
+- [main method](src/main/kotlin/kr3v/webdetect/main.kt).
 
 ### Example
 Will generate DB in `./db.json` (JSON DB) and `./db.ldb` (leveldb DB). 
